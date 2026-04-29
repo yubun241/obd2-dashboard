@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -38,105 +39,127 @@
   }
   .hdiv{height:1px;background:#1C3050;margin:0 8px;flex-shrink:0}
 
-  /* MAIN */
-  #main{flex:1 1 0;display:flex;min-height:0}
+/* MAIN */
+#main{flex:1 1 0;display:flex;min-height:0}
 
-  /* LEFT */
-  #left{
-    flex:0 0 35%;display:flex;flex-direction:column;
-    align-items:center;justify-content:center;
-    border-right:1px solid #1C3050;
-  }
-  #speed-val{
-    font-size:clamp(48px,10vw,90px);font-weight:bold;
-    line-height:1;color:#EEF2F5;
-  }
-  #speed-unit{font-size:clamp(11px,1.8vw,16px);color:#AABBCC;margin-top:2px}
-  #boost-val{
-    font-size:clamp(44px,9vw,82px);font-weight:bold;
-    color:#FFD200;line-height:1;margin-top:clamp(6px,1.5vh,14px);
-  }
-  #boost-unit{font-size:clamp(11px,1.8vw,16px);color:#FFD200;margin-top:2px}
+/* LEFT */
+#left{
+flex:0 0 40%;display:flex;flex-direction:column;
+align-items:center;justify-content:center;
+border-right:1px solid #1C3050;
+}
+#speed-val{
+font-size:clamp(48px,10vw,90px);font-weight:bold;
+line-height:1;color:#EEF2F5;
+}
+#speed-unit{font-size:clamp(11px,1.8vw,16px);color:#AABBCC;margin-top:2px}
+#boost-val{
+font-size:clamp(44px,9vw,82px);font-weight:bold;
+color:#FFD200;line-height:1;margin-top:clamp(6px,1.5vh,14px);
+}
+#boost-unit{font-size:clamp(11px,1.8vw,16px);color:#FFD200;margin-top:2px}
 
-  /* CENTER */
-  #center{
-    flex:0 0 22%;display:flex;align-items:center;
-    justify-content:center;border-right:1px solid #1C3050;
-    padding:8px 4px;
-  }
-  #gear-box{
-    width:100%;height:100%;
-    background:#0E1E36;border-radius:14px;
-    border:2.5px solid #4AABFF;
-    display:flex;align-items:center;justify-content:center;
-    transition:border-color .15s;
-  }
-  #gear-val{
-    font-size:clamp(60px,12vw,110px);font-weight:bold;
-    color:#4AABFF;transition:color .15s;line-height:1;
-  }
+/* CENTER */
+#center{
+flex:0 0 20%;display:flex;align-items:center;
+justify-content:center;border-right:1px solid #1C3050;
+padding:8px 4px;
+}
+#gear-box{
+width:100%;height:100%;
+background:#0E1E36;border-radius:14px;
+border:2.5px solid #4AABFF;
+display:flex;align-items:center;justify-content:center;
+transition:border-color .15s;
+}
+#gear-val{
+font-size:clamp(60px,12vw,110px);font-weight:bold;
+color:#4AABFF;transition:color .15s;line-height:1;
+}
 
-  /* RIGHT */
-  #right{
-    flex:1 1 0;display:flex;flex-direction:column;
-    justify-content:space-evenly;padding-left:clamp(8px,2vw,20px);
-  }
-  .sensor-row{display:flex;align-items:baseline;gap:4px}
-  .s-label{color:#5A7080;font-size:clamp(11px,1.6vw,14px)}
-  .s-val{
-    color:#EEF2F5;font-size:clamp(13px,2vw,17px);
-    font-weight:bold;min-width:3ch;text-align:right;
-  }
-  .s-val.warn{color:#FF3D1A}
-  .s-unit{color:#5A7080;font-size:clamp(10px,1.4vw,13px)}
+/* RIGHT */
+#right{
+flex:0 0 40%;display:flex;flex-direction:column;
+justify-content:space-evenly;padding-left:clamp(8px,2vw,20px);
+}
+.sensor-row{display:flex;align-items:baseline;gap:4px}
+.s-label{color:#5A7080;font-size:clamp(11px,1.6vw,14px)}
+.s-val{
+color:#EEF2F5;font-size:clamp(13px,2vw,17px);
+font-weight:bold;min-width:3ch;text-align:right;
+}
+.s-val.warn{color:#FF3D1A}
+.s-unit{color:#5A7080;font-size:clamp(10px,1.4vw,13px)}
 
-  /* STATUS BAR */
-  #status{
-    flex:0 0 32px;display:flex;align-items:center;
-    padding:0 10px;gap:8px;border-top:1px solid #1C3050;
-  }
-  #conn-label{font-size:clamp(10px,1.5vw,13px);font-weight:bold;color:#FF3D1A}
-  #ratio-label{font-size:9px;color:#5A7080}
-  #btn-conn{
-    margin-left:auto;
-    background:#4AABFF;color:#0B1020;border:none;
-    border-radius:5px;padding:3px 14px;
-    font-size:clamp(11px,1.6vw,13px);font-weight:bold;cursor:pointer;
-  }
-  #btn-conn.disc{background:#FF3D1A}
+/* STATUS BAR */
+#status{
+flex:0 0 32px;display:flex;align-items:center;
+padding:0 10px;gap:8px;border-top:1px solid #1C3050;
+}
+#conn-label{font-size:clamp(10px,1.5vw,13px);font-weight:bold;color:#FF3D1A}
+#ratio-label{font-size:9px;color:#5A7080}
+#btn-conn{
+margin-left:auto;
+background:#4AABFF;color:#0B1020;border:none;
+border-radius:5px;padding:3px 14px;
+font-size:clamp(11px,1.6vw,13px);font-weight:bold;cursor:pointer;
+}
+#btn-conn.disc{background:#FF3D1A}
 
-  /* MODAL */
-  #modal{
-    display:none;position:fixed;inset:0;
-    background:rgba(0,0,0,.6);z-index:100;
-    align-items:center;justify-content:center;
-  }
-  #modal.show{display:flex}
-  #modal-box{
-    background:#0B1020;border:1px solid #1C3050;
-    border-radius:16px;padding:20px;
-    width:min(320px,90vw);color:#EEF2F5;
-    text-align:center;
-  }
-  #modal-box h3{color:#4AABFF;margin-bottom:12px;font-size:14px}
-  #modal-box p{color:#5A7080;font-size:11px;margin-bottom:16px}
-  #modal-box button{
-    width:100%;padding:10px;margin-top:8px;border:none;
-    border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer;
-  }
-  #btn-scan{background:#4AABFF;color:#0B1020}
-  #btn-cancel{background:#0E1E36;color:#5A7080;border:1px solid #1C3050!important}
+/* MODAL */
+#modal{
+display:none;position:fixed;inset:0;
+background:rgba(0,0,0,.6);z-index:100;
+align-items:center;justify-content:center;
+}
+#modal.show{display:flex}
+#modal-box{
+background:#0B1020;border:1px solid #1C3050;
+border-radius:16px;padding:20px;
+width:min(320px,90vw);color:#EEF2F5;
+text-align:center;
+}
+#modal-box h3{color:#4AABFF;margin-bottom:12px;font-size:14px}
+#modal-box p{color:#5A7080;font-size:11px;margin-bottom:16px}
+#modal-box button{
+width:100%;padding:10px;margin-top:8px;border:none;
+border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer;
+}
+#btn-scan{background:#4AABFF;color:#0B1020}
+#btn-cancel{background:#0E1E36;color:#5A7080;border:1px solid #1C3050!important}
+
+/* DEBUG OVERLAY */
+#dbg-overlay{
+position:fixed;top:0;left:0;right:0;
+background:rgba(0,0,0,0.55);
+color:#1FD060;font-family:monospace;
+font-size:clamp(9px,1.8vw,12px);
+padding:6px 10px;
+max-height:45vh;overflow-y:auto;
+z-index:200;pointer-events:none;
+line-height:1.5;white-space:pre-wrap;word-break:break-all;
+display:none;
+}
+#dbg-overlay.show{display:block}
+#btn-dbg{
+position:fixed;bottom:40px;right:8px;z-index:300;
+background:rgba(30,50,80,0.8);color:#5A7080;border:1px solid #1C3050;
+border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;
+}
 </style>
+
 </head>
 <body>
 
 <!-- RPM BAR -->
+
 <div id="rpm-bar">
   <span id="vname">Mini F56 JCW</span>
 </div>
 <div class="hdiv"></div>
 
 <!-- MAIN -->
+
 <div id="main">
   <div id="left">
     <div id="speed-val">0</div>
@@ -174,16 +197,20 @@
 <div class="hdiv"></div>
 
 <!-- STATUS BAR -->
+
 <div id="status">
   <span id="conn-label">OBD: Disconnected</span>
   <span id="ratio-label"></span>
   <button id="btn-conn" onclick="onConnBtn()">接続</button>
 </div>
 
-<!-- DEBUG LOG -->
-<div id="dbg" style="background:#050A14;color:#1FD060;font-family:monospace;font-size:10px;padding:4px 8px;max-height:80px;overflow-y:auto;flex-shrink:0;border-top:1px solid #1C3050;"></div>
+<!-- DEBUG OVERLAY -->
+
+<div id="dbg-overlay"></div>
+<button id="btn-dbg" onclick="toggleDbg()">DBG</button>
 
 <!-- MODAL -->
+
 <div id="modal">
   <div id="modal-box">
     <h3>BLE ELM327 接続</h3>
@@ -477,10 +504,17 @@ function poll() {
   }, 50);
 }
 
+let _dbgLog = '';
 function dbg(msg) {
-  const el = document.getElementById("dbg");
-  if (!el) return;
-  el.textContent = msg + "\n" + el.textContent.slice(0,600);
+  _dbgLog = msg + '\n' + _dbgLog;
+  if (_dbgLog.length > 1200) _dbgLog = _dbgLog.slice(0, 1200);
+  const el = document.getElementById('dbg-overlay');
+  if (el && el.classList.contains('show')) el.textContent = _dbgLog;
+}
+function toggleDbg() {
+  const el = document.getElementById('dbg-overlay');
+  el.classList.toggle('show');
+  if (el.classList.contains('show')) el.textContent = _dbgLog;
 }
 
 function parse(raw) {
@@ -544,5 +578,6 @@ if (screen.orientation?.lock) {
   screen.orientation.lock('landscape').catch(()=>{});
 }
 </script>
+
 </body>
 </html>

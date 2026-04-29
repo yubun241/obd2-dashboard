@@ -180,6 +180,9 @@
   <button id="btn-conn" onclick="onConnBtn()">接続</button>
 </div>
 
+<!-- DEBUG LOG -->
+<div id="dbg" style="background:#050A14;color:#1FD060;font-family:monospace;font-size:10px;padding:4px 8px;max-height:80px;overflow-y:auto;flex-shrink:0;border-top:1px solid #1C3050;"></div>
+
 <!-- MODAL -->
 <div id="modal">
   <div id="modal-box">
@@ -237,7 +240,17 @@ const S = {
   curPid:'', pidQueue:[],
 };
 
-const PIDS = ['010C','010D','0105','010F','010B','010A'];
+// 高速PID: RPM・速度を優先、補助センサーは間引き
+const PIDS_FAST = ['010C','010D'];
+const PIDS_SLOW = ['0105','010F','010B','010A'];
+let _slowIdx = 0;
+function nextPids() {
+  // 2サイクルに1回補助センサーを1つ追加
+  const pids = [...PIDS_FAST];
+  if (_slowIdx < PIDS_SLOW.length) pids.push(PIDS_SLOW[_slowIdx]);
+  _slowIdx = (_slowIdx + 1) % PIDS_SLOW.length;
+  return pids;
+}
 const NOISE = ['NODATA','ERROR','UNABLE','SEARCHING','STOPPED','BUSBUSY'];
 
 // ═══════════════════════════════════════════════
@@ -426,7 +439,7 @@ async function startBLE() {
     }
 
     S.conn = 'Connected'; S.polling = true;
-    S.pidQueue = [...PIDS];
+    S.pidQueue = nextPids();
     updateUI();
     poll();
 
@@ -456,16 +469,23 @@ function poll() {
       clearInterval(_pollTimer); return;
     }
     if (S.waiting) return;
-    if (!S.pidQueue.length) S.pidQueue = [...PIDS];
+    if (!S.pidQueue.length) S.pidQueue = nextPids();
     S.curPid = S.pidQueue.shift();
     S.waiting = true;
     send(S.curPid);
-    _timeoutTimer = setTimeout(() => { S.buf=''; S.waiting=false; }, 800);
-  }, 120);
+    _timeoutTimer = setTimeout(() => { S.buf=''; S.waiting=false; }, 500);
+  }, 50);
+}
+
+function dbg(msg) {
+  const el = document.getElementById("dbg");
+  if (!el) return;
+  el.textContent = msg + "\n" + el.textContent.slice(0,600);
 }
 
 function parse(raw) {
   const pid = S.curPid;
+  dbg("["+pid+"] "+JSON.stringify(raw));
   if (!pid) return;
   const s = raw.replace(/[\s\r\n>]/g,'').toUpperCase();
   if (!s || NOISE.some(n=>s.includes(n))) return;

@@ -475,11 +475,24 @@ let _timeoutTimer = null;
 
 function onData(event) {
   try { S.buf += new TextDecoder().decode(event.target.value); } catch(_) { return; }
-  if (S.buf.includes('>') || S.buf.split('\r').length > 2) {
-    clearTimeout(_timeoutTimer);
-    const r = S.buf; S.buf = '';
-    S.waiting = false;
-    if (S.conn === 'Connected') { parse(r); updateUI(); }
+  // '>' または \r が複数含まれたら応答完了
+  if (!S.buf.includes('>') && S.buf.split('\r').filter(x=>x.trim()).length < 1) return;
+  clearTimeout(_timeoutTimer);
+  const r = S.buf; S.buf = '';
+  S.waiting = false;
+  if (S.conn !== 'Connected') return;
+
+  // 連結応答を\rで分割して全部処理
+  // 例: "410C0AD2\r410C0AC0\r>" → ["410C0AD2","410C0AC0"]
+  const lines = r.split('\r').map(l=>l.replace(/[\n>]/g,'').trim()).filter(l=>l.length>3);
+  const pid = S.curPid;
+  dbg('['+pid+'] lines='+JSON.stringify(lines));
+  if (lines.length > 0) {
+    // 最新値（最後の有効行）を使用
+    for (const line of lines) {
+      parseLine(pid, line);
+    }
+    updateUI();
   }
 }
 
@@ -511,10 +524,7 @@ function toggleDbg() {
   if (el.classList.contains('show')) el.textContent = _dbgLog;
 }
 
-function parse(raw) {
-  const pid = S.curPid;
-  dbg("["+pid+"] "+JSON.stringify(raw));
-  if (!pid) return;
+function parseLineRaw(pid, raw) {
   const s = raw.replace(/[\s\r\n>]/g,'').toUpperCase();
   if (!s || NOISE.some(n=>s.includes(n))) return;
   const hdr = '4' + pid.slice(1);
@@ -538,6 +548,13 @@ function parse(raw) {
       S.fuelKpa = parseInt(v.slice(0,2),16) * 3;
     }
   } catch(e) { console.warn('[PARSE]',e); }
+}
+
+function parseLine(pid, line) { parseLineRaw(pid, line); }
+function parse(raw) {
+  const pid = S.curPid;
+  if (!pid) return;
+  parseLineRaw(pid, raw);
   updateUI();
 }
 

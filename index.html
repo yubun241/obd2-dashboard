@@ -6,6 +6,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>OBD2 Dashboard</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0B1020">
+<link rel="apple-touch-icon" href="icon.png">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   body{
@@ -497,6 +500,13 @@ function onConnBtn() {
 }
 function openModal()  { document.getElementById('modal').classList.add('show'); }
 function closeModal() { document.getElementById('modal').classList.remove('show'); }
+
+// Service Worker 登録
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/obd2-dashboard/sw.js')
+    .then(() => console.log('[PWA] SW registered'))
+    .catch(e => console.warn('[PWA] SW error', e));
+}
 
 // ═══════════════════════════════════════════════
 // INIT

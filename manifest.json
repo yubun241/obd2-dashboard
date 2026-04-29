@@ -1,0 +1,22 @@
+{
+  "name": "OBD2 Dashboard",
+  "short_name": "OBD2",
+  "description": "Mini F56 JCW OBD2 BLE Dashboard",
+  "start_url": "/obd2-dashboard/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0B1020",
+  "theme_color": "#0B1020",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -146,6 +146,24 @@
     background:rgba(30,50,80,0.8);color:#5A7080;border:1px solid #1C3050;
     border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;
   }
+  .peak-hold {
+    transition: opacity 1.2s ease-in;
+  }
+  .peak-fade {
+    opacity: 0.45;
+    transition: opacity 1.2s ease-in;
+  }
+  @keyframes peak-blink {
+    0%   { opacity:1; }
+    20%  { opacity:0.1; }
+    40%  { opacity:1; }
+    60%  { opacity:0.1; }
+    80%  { opacity:1; }
+    100% { opacity:1; }
+  }
+  .peak-blink {
+    animation: peak-blink 0.4s ease-in-out;
+  }
 </style>
 </head>
 <body>
@@ -328,11 +346,60 @@ function updateDots() {
 // ═══════════════════════════════════════════════
 const GEAR_COLORS = { N:'#4AABFF', '1':'#FF8000', R:'#FF3D1A' };
 
+// ピークホールド状態管理
+const _peak = {};
+// elId: { peakVal, displayVal, holdTimer, fadeTimer }
+
+function peakUpdate(elId, newVal, colorDefault) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const num = parseFloat(newVal);
+  if (isNaN(num)) { el.textContent = newVal; return; }
+
+  if (!_peak[elId]) _peak[elId] = { peakVal: num, holdTimer: null, fadeTimer: null };
+  const state = _peak[elId];
+
+  if (num >= state.peakVal) {
+    // 上昇 or 同値: 即時追従・ピーク更新
+    state.peakVal = num;
+    el.textContent = num;
+    el.style.color = colorDefault;
+    el.classList.remove('peak-fade');
+
+    // ピーク更新時に点滅
+    el.classList.remove('peak-blink');
+    void el.offsetWidth;
+    el.classList.add('peak-blink');
+    setTimeout(() => el.classList.remove('peak-blink'), 400);
+
+    // ホールドタイマーリセット
+    clearTimeout(state.holdTimer);
+    clearTimeout(state.fadeTimer);
+    state.holdTimer = setTimeout(() => {
+      // 1.5秒後にフェードアウト開始
+      el.classList.add('peak-fade');
+      state.fadeTimer = setTimeout(() => {
+        // フェード完了後にピークリセット
+        state.peakVal = num;
+        el.classList.remove('peak-fade');
+      }, 1200);
+    }, 1500);
+
+  } else {
+    // 下降: ピーク値を表示したまま保持、実値は反映しない
+    // フェード中なら実値に追従
+    if (el.classList.contains('peak-fade')) {
+      el.textContent = num;
+      state.peakVal = num;
+    }
+    // ピーク保持中は何もしない（高い値を表示し続ける）
+  }
+}
+
 function updateUI() {
   updateDots();
-  document.getElementById('speed-val').textContent = S.speed;
-  document.getElementById('boost-val').textContent =
-    S.boost !== null ? S.boost.toFixed(2) : '---';
+  peakUpdate('speed-val', S.speed, '#EEF2F5');
+  peakUpdate('boost-val', S.boost !== null ? S.boost.toFixed(2) : '---', '#FFD200');
 
   const gv  = document.getElementById('gear-val');
   const gb  = document.getElementById('gear-box');

@@ -130,8 +130,8 @@
 
   /* DEBUG OVERLAY */
   #dbg-overlay{
-    position:fixed;top:0;left:0;right:0;bottom:0;
-    background:rgba(0,0,0,0.75);
+    position:fixed;top:0;left:50%;right:0;bottom:0;
+    background:rgba(0,0,0,0.82);
     color:#1FD060;font-family:monospace;
     font-size:clamp(9px,1.8vw,12px);
     padding:6px 10px;
@@ -139,6 +139,7 @@
     z-index:200;pointer-events:none;
     line-height:1.5;white-space:pre-wrap;word-break:break-all;
     display:none;
+    border-left:1px solid #1C3050;
   }
   #dbg-overlay.show{display:block}
   #btn-dbg{

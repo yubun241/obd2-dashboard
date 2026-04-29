@@ -1,4 +1,4 @@
-const CACHE = 'obd2-v1';
+const CACHE = 'obd2-v5';
 const FILES = [
   '/obd2-dashboard/',
   '/obd2-dashboard/index.html',

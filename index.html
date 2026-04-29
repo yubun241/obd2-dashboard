@@ -83,12 +83,13 @@
   }
   .sensor-row{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;}
   .s-label{color:#5A7080;font-size:clamp(11px,1.6vw,13px);margin-bottom:2px;}
+  .s-num-row{display:flex;align-items:baseline;gap:5px;}
   .s-val{
-    color:#EEF2F5;font-size:clamp(40px,7vw,72px);
+    color:#EEF2F5;font-size:clamp(28px,5vw,52px);
     font-weight:bold;line-height:1;
   }
   .s-val.warn{color:#FF3D1A}
-  .s-unit{color:#5A7080;font-size:clamp(11px,1.6vw,13px);margin-top:2px;}
+  .s-unit{color:#5A7080;font-size:clamp(11px,1.6vw,14px);}
 
   /* STATUS BAR */
   #status{
@@ -168,19 +169,25 @@
   </div>
   <div id="right">
     <div class="sensor-row">
-      <span class="s-label">Coolant:</span>
-      <span class="s-val" id="sv-coolant">--</span>
-      <span class="s-unit">°C</span>
+      <span class="s-label">Coolant</span>
+      <div class="s-num-row">
+        <span class="s-val" id="sv-coolant">--</span>
+        <span class="s-unit">°C</span>
+      </div>
     </div>
     <div class="sensor-row">
-      <span class="s-label">Intake:</span>
-      <span class="s-val" id="sv-intake">--</span>
-      <span class="s-unit">°C</span>
+      <span class="s-label">Oil Temp</span>
+      <div class="s-num-row">
+        <span class="s-val" id="sv-oil">--</span>
+        <span class="s-unit">°C</span>
+      </div>
     </div>
     <div class="sensor-row">
-      <span class="s-label">MAP:</span>
-      <span class="s-val" id="sv-map">--</span>
-      <span class="s-unit">kPa</span>
+      <span class="s-label">INST. POWER</span>
+      <div class="s-num-row">
+        <span class="s-val" id="sv-hp" style="color:#FF8000;">--</span>
+        <span class="s-unit">HP</span>
+      </div>
     </div>
 
   </div>
@@ -249,7 +256,7 @@ const ELM_SERVICES = [
 // ═══════════════════════════════════════════════
 const S = {
   rpm:0, speed:0, coolant:null, intake:null,
-  mapKpa:null, fuelKpa:null, boost:null,
+  mapKpa:null, fuelKpa:null, boost:null, oilTemp:null,
   gear:'N', gearCand:'N', gearCnt:0,
   conn:'Disconnected',
   device:null, txChar:null,
@@ -259,7 +266,7 @@ const S = {
 
 // 高速PID: RPM・速度を優先、補助センサーは間引き
 const PIDS_FAST = ['010C','010D'];
-const PIDS_SLOW = ['0105','010F','010B','010A'];
+const PIDS_SLOW = ['015C','010B','0105'];
 let _slowIdx = 0;
 function nextPids() {
   // 2サイクルに1回補助センサーを1つ追加
@@ -388,7 +395,7 @@ async function startBLE() {
       S.polling = false; S.txChar = null;
       clearInterval(_pollTimer); clearTimeout(_timeoutTimer);
       Object.assign(S, {rpm:0,speed:0,coolant:null,intake:null,
-        mapKpa:null,fuelKpa:null,boost:null,gear:'N',
+        mapKpa:null,fuelKpa:null,boost:null,oilTemp:null,gear:'N',
         gearCand:'N',gearCnt:0,buf:'',waiting:false});
       S.conn = 'Disconnected'; updateUI();
     });
@@ -540,8 +547,8 @@ function parseLineRaw(pid, raw) {
     } else if (pid==='010B' && v.length>=2) {
       const k = parseInt(v.slice(0,2),16);
       S.mapKpa = k; S.boost = (k - 101.325) / 98.0665;
-    } else if (pid==='010A' && v.length>=2) {
-      S.fuelKpa = parseInt(v.slice(0,2),16) * 3;
+    } else if (pid==='015C' && v.length>=2) {
+      S.oilTemp = parseInt(v.slice(0,2),16) - 40;
     }
   } catch(e) { console.warn('[PARSE]',e); }
 }

@@ -356,9 +356,10 @@ async function startBLE() {
     device.addEventListener('gattserverdisconnected', () => {
       console.log('[BLE] disconnected');
       S.polling = false; S.txChar = null;
+      clearInterval(_pollTimer); clearTimeout(_timeoutTimer);
       Object.assign(S, {rpm:0,speed:0,coolant:null,intake:null,
         mapKpa:null,fuelKpa:null,boost:null,gear:'N',
-        gearCand:'N',gearCnt:0});
+        gearCand:'N',gearCnt:0,buf:'',waiting:false});
       S.conn = 'Disconnected'; updateUI();
     });
 
@@ -435,27 +436,32 @@ async function startBLE() {
   }
 }
 
+let _pollTimer = null;
+let _timeoutTimer = null;
+
 function onData(event) {
-  const val = event.target.value;
-  S.buf += new TextDecoder().decode(val);
-  if (S.buf.includes('>')) {
+  try { S.buf += new TextDecoder().decode(event.target.value); } catch(_) { return; }
+  if (S.buf.includes('>') || S.buf.split('\r').length > 2) {
+    clearTimeout(_timeoutTimer);
     const r = S.buf; S.buf = '';
-    if (S.conn === 'Connected') parse(r);
     S.waiting = false;
+    if (S.conn === 'Connected') { parse(r); updateUI(); }
   }
 }
 
-async function poll() {
-  while (S.polling && S.conn === 'Connected') {
-    if (!S.waiting) {
-      if (!S.pidQueue.length) S.pidQueue = [...PIDS];
-      S.curPid = S.pidQueue.shift();
-      S.waiting = true;
-      send(S.curPid);
-      setTimeout(() => { S.waiting = false; }, 1000);
+function poll() {
+  if (_pollTimer) clearInterval(_pollTimer);
+  _pollTimer = setInterval(() => {
+    if (!S.polling || S.conn !== 'Connected') {
+      clearInterval(_pollTimer); return;
     }
-    await sleep(50);
-  }
+    if (S.waiting) return;
+    if (!S.pidQueue.length) S.pidQueue = [...PIDS];
+    S.curPid = S.pidQueue.shift();
+    S.waiting = true;
+    send(S.curPid);
+    _timeoutTimer = setTimeout(() => { S.buf=''; S.waiting=false; }, 800);
+  }, 120);
 }
 
 function parse(raw) {

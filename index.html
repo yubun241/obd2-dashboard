@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>OBD2 Dashboard</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:#0B1020;color:#EEF2F5;
+    font-family:'Helvetica Neue',Helvetica,sans-serif;
+    height:100dvh;overflow:hidden;
+    display:flex;flex-direction:column;
+  }
+  /* RPM BAR */
+  #rpm-bar{
+    flex:0 0 20%;display:flex;align-items:center;
+    justify-content:center;gap:clamp(4px,2vw,18px);
+    padding:0 4vw;position:relative;
+  }
+  .dot{
+    width:clamp(10px,3.5vw,28px);
+    height:clamp(10px,3.5vw,28px);
+    border-radius:50%;
+    border:1.5px solid #1C3050;
+    flex-shrink:0;transition:background .05s;
+  }
+  .dot.active-n{background:#4AABFF;border-color:#4AABFF}
+  .dot.active-r{background:#FF3D1A;border-color:#FF3D1A}
+  #vname{
+    position:absolute;right:1vw;top:6px;
+    font-size:clamp(8px,1.2vw,11px);color:#5A7080;
+  }
+  .hdiv{height:1px;background:#1C3050;margin:0 8px;flex-shrink:0}
+
+  /* MAIN */
+  #main{flex:1 1 0;display:flex;min-height:0}
+
+  /* LEFT */
+  #left{
+    flex:0 0 35%;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    border-right:1px solid #1C3050;
+  }
+  #speed-val{
+    font-size:clamp(48px,10vw,90px);font-weight:bold;
+    line-height:1;color:#EEF2F5;
+  }
+  #speed-unit{font-size:clamp(11px,1.8vw,16px);color:#AABBCC;margin-top:2px}
+  #boost-val{
+    font-size:clamp(44px,9vw,82px);font-weight:bold;
+    color:#FFD200;line-height:1;margin-top:clamp(6px,1.5vh,14px);
+  }
+  #boost-unit{font-size:clamp(11px,1.8vw,16px);color:#FFD200;margin-top:2px}
+
+  /* CENTER */
+  #center{
+    flex:0 0 22%;display:flex;align-items:center;
+    justify-content:center;border-right:1px solid #1C3050;
+    padding:8px 4px;
+  }
+  #gear-box{
+    width:100%;height:100%;
+    background:#0E1E36;border-radius:14px;
+    border:2.5px solid #4AABFF;
+    display:flex;align-items:center;justify-content:center;
+    transition:border-color .15s;
+  }
+  #gear-val{
+    font-size:clamp(60px,12vw,110px);font-weight:bold;
+    color:#4AABFF;transition:color .15s;line-height:1;
+  }
+
+  /* RIGHT */
+  #right{
+    flex:1 1 0;display:flex;flex-direction:column;
+    justify-content:space-evenly;padding-left:clamp(8px,2vw,20px);
+  }
+  .sensor-row{display:flex;align-items:baseline;gap:4px}
+  .s-label{color:#5A7080;font-size:clamp(11px,1.6vw,14px)}
+  .s-val{
+    color:#EEF2F5;font-size:clamp(13px,2vw,17px);
+    font-weight:bold;min-width:3ch;text-align:right;
+  }
+  .s-val.warn{color:#FF3D1A}
+  .s-unit{color:#5A7080;font-size:clamp(10px,1.4vw,13px)}
+
+  /* STATUS BAR */
+  #status{
+    flex:0 0 32px;display:flex;align-items:center;
+    padding:0 10px;gap:8px;border-top:1px solid #1C3050;
+  }
+  #conn-label{font-size:clamp(10px,1.5vw,13px);font-weight:bold;color:#FF3D1A}
+  #ratio-label{font-size:9px;color:#5A7080}
+  #btn-conn{
+    margin-left:auto;
+    background:#4AABFF;color:#0B1020;border:none;
+    border-radius:5px;padding:3px 14px;
+    font-size:clamp(11px,1.6vw,13px);font-weight:bold;cursor:pointer;
+  }
+  #btn-conn.disc{background:#FF3D1A}
+
+  /* MODAL */
+  #modal{
+    display:none;position:fixed;inset:0;
+    background:rgba(0,0,0,.6);z-index:100;
+    align-items:center;justify-content:center;
+  }
+  #modal.show{display:flex}
+  #modal-box{
+    background:#0B1020;border:1px solid #1C3050;
+    border-radius:16px;padding:20px;
+    width:min(320px,90vw);color:#EEF2F5;
+    text-align:center;
+  }
+  #modal-box h3{color:#4AABFF;margin-bottom:12px;font-size:14px}
+  #modal-box p{color:#5A7080;font-size:11px;margin-bottom:16px}
+  #modal-box button{
+    width:100%;padding:10px;margin-top:8px;border:none;
+    border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer;
+  }
+  #btn-scan{background:#4AABFF;color:#0B1020}
+  #btn-cancel{background:#0E1E36;color:#5A7080;border:1px solid #1C3050!important}
+</style>
+</head>
+<body>
+
+<!-- RPM BAR -->
+<div id="rpm-bar">
+  <span id="vname">Mini F56 JCW</span>
+</div>
+<div class="hdiv"></div>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="left">
+    <div id="speed-val">0</div>
+    <div id="speed-unit">km/h</div>
+    <div id="boost-val">---</div>
+    <div id="boost-unit">kg/cm²</div>
+  </div>
+  <div id="center">
+    <div id="gear-box"><span id="gear-val">N</span></div>
+  </div>
+  <div id="right">
+    <div class="sensor-row">
+      <span class="s-label">Coolant:</span>
+      <span class="s-val" id="sv-coolant">--</span>
+      <span class="s-unit">°C</span>
+    </div>
+    <div class="sensor-row">
+      <span class="s-label">Intake:</span>
+      <span class="s-val" id="sv-intake">--</span>
+      <span class="s-unit">°C</span>
+    </div>
+    <div class="sensor-row">
+      <span class="s-label">MAP:</span>
+      <span class="s-val" id="sv-map">--</span>
+      <span class="s-unit">kPa</span>
+    </div>
+    <div class="sensor-row">
+      <span class="s-label">Fuel:</span>
+      <span class="s-val" id="sv-fuel">--</span>
+      <span class="s-unit">kPa</span>
+    </div>
+  </div>
+</div>
+
+<div class="hdiv"></div>
+
+<!-- STATUS BAR -->
+<div id="status">
+  <span id="conn-label">OBD: Disconnected</span>
+  <span id="ratio-label"></span>
+  <button id="btn-conn" onclick="onConnBtn()">接続</button>
+</div>
+
+<!-- MODAL -->
+<div id="modal">
+  <div id="modal-box">
+    <h3>BLE ELM327 接続</h3>
+    <p>次の画面でドングルを選択してください<br>（エンジンONの状態で実行）</p>
+    <button id="btn-scan" onclick="startBLE()">デバイスを検索</button>
+    <button id="btn-cancel" onclick="closeModal()">キャンセル</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// CONFIG  (Mini F56 JCW)
+// ═══════════════════════════════════════════════
+const CFG = {
+  maxRpm:        8000,
+  redlinePct:    0.82,
+  rpmDots:       12,
+  finalDrive:    3.647,
+  tireDiamMm:    616,
+  gearRatios:    [3.308,1.913,1.258,0.943,0.742,0.596],
+  tolerancePct:  0.18,
+  hysteresis:    3,
+  minSpeed:      4,
+  minRpm:        500,
+};
+
+// ギアテーブル計算
+const GEAR_TABLE = (() => {
+  const circ  = Math.PI * CFG.tireDiamMm / 1000;
+  const factor = CFG.finalDrive * 1000 / (circ * 60);
+  return CFG.gearRatios.map((gr, i) => ({ gear: String(i+1), rpmPerKmh: gr * factor }));
+})();
+
+// ═══════════════════════════════════════════════
+// ELM327 UUIDs
+// ═══════════════════════════════════════════════
+const ELM_SERVICES = [
+  '0000ffe0-0000-1000-8000-00805f9b34fb',
+  '0000fff0-0000-1000-8000-00805f9b34fb',
+  '000018f0-0000-1000-8000-00805f9b34fb',
+  '0000ffe5-0000-1000-8000-00805f9b34fb',
+];
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+const S = {
+  rpm:0, speed:0, coolant:null, intake:null,
+  mapKpa:null, fuelKpa:null, boost:null,
+  gear:'N', gearCand:'N', gearCnt:0,
+  conn:'Disconnected',
+  device:null, txChar:null,
+  polling:false, waiting:false, buf:'',
+  curPid:'', pidQueue:[],
+};
+
+const PIDS = ['010C','010D','0105','010F','010B','010A'];
+const NOISE = ['NODATA','ERROR','UNABLE','SEARCHING','STOPPED','BUSBUSY'];
+
+// ═══════════════════════════════════════════════
+// GEAR DETECTION
+// ═══════════════════════════════════════════════
+function detectGear() {
+  if (S.speed < CFG.minSpeed || S.rpm < CFG.minRpm) {
+    S.gearCand='N'; S.gearCnt=0; S.gear='N'; return;
+  }
+  const ratio = S.rpm / S.speed;
+  let best='N', bestPct=CFG.tolerancePct;
+  for (const g of GEAR_TABLE) {
+    const pct = Math.abs(ratio - g.rpmPerKmh) / g.rpmPerKmh;
+    if (pct < bestPct) { bestPct=pct; best=g.gear; }
+  }
+  if (best === S.gearCand) {
+    S.gearCnt++;
+    if (S.gearCnt >= CFG.hysteresis) S.gear = best;
+  } else { S.gearCand=best; S.gearCnt=1; }
+}
+
+// ═══════════════════════════════════════════════
+// RPM DOTS
+// ═══════════════════════════════════════════════
+function buildDots() {
+  const bar = document.getElementById('rpm-bar');
+  // 既存ドットを削除（vnameは残す）
+  [...bar.querySelectorAll('.dot')].forEach(d=>d.remove());
+  const vname = document.getElementById('vname');
+  for (let i = 0; i < CFG.rpmDots; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot';
+    d.id = `dot-${i}`;
+    bar.insertBefore(d, vname);
+  }
+}
+
+function updateDots() {
+  const active  = Math.min(Math.floor(S.rpm / CFG.maxRpm * CFG.rpmDots), CFG.rpmDots);
+  const rdline  = Math.floor(CFG.rpmDots * CFG.redlinePct);
+  for (let i = 0; i < CFG.rpmDots; i++) {
+    const d = document.getElementById(`dot-${i}`);
+    if (!d) continue;
+    d.className = 'dot';
+    if (i < active) d.classList.add(i >= rdline ? 'active-r' : 'active-n');
+  }
+}
+
+// ═══════════════════════════════════════════════
+// UI UPDATE
+// ═══════════════════════════════════════════════
+const GEAR_COLORS = { N:'#4AABFF', '1':'#FF8000', R:'#FF3D1A' };
+
+function updateUI() {
+  updateDots();
+  document.getElementById('speed-val').textContent = S.speed;
+  document.getElementById('boost-val').textContent =
+    S.boost !== null ? S.boost.toFixed(2) : '---';
+
+  const gv  = document.getElementById('gear-val');
+  const gb  = document.getElementById('gear-box');
+  const col = GEAR_COLORS[S.gear] || '#EEF2F5';
+  gv.textContent  = S.gear;
+  gv.style.color  = col;
+  gb.style.borderColor = col;
+
+  const sv = (id, val, warn=false) => {
+    const el = document.getElementById(id);
+    el.textContent = val !== null ? val : '--';
+    el.className = 's-val' + (warn ? ' warn' : '');
+  };
+  sv('sv-coolant', S.coolant, S.coolant !== null && S.coolant >= 105);
+  sv('sv-intake',  S.intake);
+  sv('sv-map',     S.mapKpa !== null ? Math.round(S.mapKpa) : null);
+  sv('sv-fuel',    S.fuelKpa);
+
+  const cl  = document.getElementById('conn-label');
+  cl.textContent = `OBD: ${S.conn}`;
+  cl.style.color  = S.conn==='Connected' ? '#1FD060' : '#FF3D1A';
+
+  const btn = document.getElementById('btn-conn');
+  btn.textContent = S.conn==='Connected' ? '切断' : '接続';
+  btn.className   = S.conn==='Connected' ? 'disc' : '';
+
+  const rl = document.getElementById('ratio-label');
+  rl.textContent = S.speed > 2 ? `${(S.rpm/S.speed).toFixed(1)} r/v` : '';
+}
+
+// ═══════════════════════════════════════════════
+// BLE
+// ═══════════════════════════════════════════════
+function send(cmd) {
+  if (!S.txChar) return;
+  const data = new TextEncoder().encode(cmd + '\r');
+  S.txChar.writeValueWithoutResponse(data).catch(e=>console.warn('[SEND]',e));
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function startBLE() {
+  closeModal();
+  if (!navigator.bluetooth) {
+    alert('このブラウザはWeb Bluetoothに対応していません。\nAndroid Chrome をお使いください。');
+    return;
+  }
+  try {
+    S.conn = 'Scanning...'; updateUI();
+    const device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: ELM_SERVICES,
+    });
+
+    S.device = device;
+    S.conn = 'Connecting...'; updateUI();
+
+    device.addEventListener('gattserverdisconnected', () => {
+      console.log('[BLE] disconnected');
+      S.polling = false; S.txChar = null;
+      Object.assign(S, {rpm:0,speed:0,coolant:null,intake:null,
+        mapKpa:null,fuelKpa:null,boost:null,gear:'N',
+        gearCand:'N',gearCnt:0});
+      S.conn = 'Disconnected'; updateUI();
+    });
+
+    const server = await device.gatt.connect();
+    S.conn = 'Discovering...'; updateUI();
+
+    // サービス探索
+    let txChar=null, rxChar=null;
+    const services = await server.getPrimaryServices();
+
+    // 既知UUIDを優先して探索
+    for (const svcUuid of ELM_SERVICES) {
+      try {
+        const svc  = await server.getPrimaryService(svcUuid);
+        const chars = await svc.getCharacteristics();
+        console.log(`[SVC] ${svcUuid} chars=${chars.length}`);
+        for (const c of chars) {
+          console.log(`[CHAR] ${c.uuid} props=`, c.properties);
+          if ((c.properties.notify || c.properties.indicate) && !rxChar) rxChar = c;
+          if ((c.properties.writeWithoutResponse || c.properties.write) && !txChar) txChar = c;
+        }
+        if (txChar && rxChar) { console.log('[MATCH] known service:', svcUuid); break; }
+      } catch(_) {}
+    }
+
+    // フォールバック: 全サービス走査
+    if (!txChar || !rxChar) {
+      const STD = ['00001800','00001801','0000180a','0000180f'];
+      for (const svc of services) {
+        if (STD.some(s => svc.uuid.startsWith(s))) continue;
+        try {
+          const chars = await svc.getCharacteristics();
+          for (const c of chars) {
+            if ((c.properties.notify||c.properties.indicate) && !rxChar) rxChar = c;
+            if ((c.properties.writeWithoutResponse||c.properties.write) && !txChar) txChar = c;
+          }
+          if (txChar && rxChar) { console.log('[MATCH] fallback svc:', svc.uuid); break; }
+        } catch(_) {}
+      }
+    }
+
+    if (!txChar || !rxChar) {
+      S.conn='Match failed'; updateUI();
+      alert('ELM327のCharacteristicが見つかりませんでした。\nデバイスを確認してください。');
+      return;
+    }
+
+    S.txChar = txChar;
+    console.log('[MATCH] TX=', txChar.uuid, 'RX=', rxChar.uuid);
+
+    // Notify開始
+    await rxChar.startNotifications();
+    rxChar.addEventListener('characteristicvaluechanged', onData);
+
+    // ELM327初期化
+    await sleep(500);
+    console.log('[ELM] ATZ');
+    send('ATZ');
+    await sleep(1600);
+    for (const cmd of ['ATE0','ATL0','ATS0','ATH0','ATSP0']) {
+      console.log('[ELM]', cmd);
+      send(cmd);
+      await sleep(400);
+    }
+
+    S.conn = 'Connected'; S.polling = true;
+    S.pidQueue = [...PIDS];
+    updateUI();
+    poll();
+
+  } catch(e) {
+    console.error('[BLE]', e);
+    S.conn = 'Disconnected'; updateUI();
+  }
+}
+
+function onData(event) {
+  const val = event.target.value;
+  S.buf += new TextDecoder().decode(val);
+  if (S.buf.includes('>')) {
+    const r = S.buf; S.buf = '';
+    if (S.conn === 'Connected') parse(r);
+    S.waiting = false;
+  }
+}
+
+async function poll() {
+  while (S.polling && S.conn === 'Connected') {
+    if (!S.waiting) {
+      if (!S.pidQueue.length) S.pidQueue = [...PIDS];
+      S.curPid = S.pidQueue.shift();
+      S.waiting = true;
+      send(S.curPid);
+      setTimeout(() => { S.waiting = false; }, 1000);
+    }
+    await sleep(50);
+  }
+}
+
+function parse(raw) {
+  const pid = S.curPid;
+  if (!pid) return;
+  const s = raw.replace(/[\s\r\n>]/g,'').toUpperCase();
+  if (!s || NOISE.some(n=>s.includes(n))) return;
+  const hdr = '4' + pid.slice(1);
+  const idx = s.indexOf(hdr);
+  if (idx < 0) return;
+  const v = s.slice(idx + 4);
+  try {
+    if (pid==='010C' && v.length>=4) {
+      S.rpm = (parseInt(v.slice(0,2),16)*256 + parseInt(v.slice(2,4),16)) >> 2;
+      detectGear();
+    } else if (pid==='010D' && v.length>=2) {
+      S.speed = parseInt(v.slice(0,2),16); detectGear();
+    } else if (pid==='0105' && v.length>=2) {
+      S.coolant = parseInt(v.slice(0,2),16) - 40;
+    } else if (pid==='010F' && v.length>=2) {
+      S.intake  = parseInt(v.slice(0,2),16) - 40;
+    } else if (pid==='010B' && v.length>=2) {
+      const k = parseInt(v.slice(0,2),16);
+      S.mapKpa = k; S.boost = (k - 101.325) / 98.0665;
+    } else if (pid==='010A' && v.length>=2) {
+      S.fuelKpa = parseInt(v.slice(0,2),16) * 3;
+    }
+  } catch(e) { console.warn('[PARSE]',e); }
+  updateUI();
+}
+
+// ═══════════════════════════════════════════════
+// MODAL / BUTTON
+// ═══════════════════════════════════════════════
+function onConnBtn() {
+  if (S.conn === 'Connected') {
+    S.polling = false;
+    if (S.device?.gatt?.connected) S.device.gatt.disconnect();
+  } else {
+    openModal();
+  }
+}
+function openModal()  { document.getElementById('modal').classList.add('show'); }
+function closeModal() { document.getElementById('modal').classList.remove('show'); }
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+buildDots();
+updateUI();
+// 画面を横向きにリクエスト
+if (screen.orientation?.lock) {
+  screen.orientation.lock('landscape').catch(()=>{});
+}
+</script>
+</body>
+</html>

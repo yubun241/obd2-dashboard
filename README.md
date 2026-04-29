@@ -4,7 +4,8 @@ BLE ELM327 OBD2 ダッシュボード
 Web Bluetooth API + GitHub Pages + PWA 構成
 
 ## 動作イメージ
-<img width="700" height="269" alt="スクリーンショット 2026-04-29 14 30 40" src="https://github.com/user-attachments/assets/6cf0a344-4868-4d7e-bc0a-ca6ffbc5c306" />
+<img width="700" height="269" alt="スクリーンショット 2026-04-29 14 32 07" src="https://github.com/user-attachments/assets/6cf80fac-1d76-468e-b4e3-1133e85e83ef" />
+
 
 
 

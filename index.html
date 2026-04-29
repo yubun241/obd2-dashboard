@@ -411,13 +411,19 @@ function updateUI() {
 
   const sv = (id, val, warn=false) => {
     const el = document.getElementById(id);
+    if (!el) return;
     el.textContent = val !== null ? val : '--';
     el.className = 's-val' + (warn ? ' warn' : '');
   };
   sv('sv-coolant', S.coolant, S.coolant !== null && S.coolant >= 105);
-  sv('sv-intake',  S.intake);
-  sv('sv-map',     S.mapKpa !== null ? Math.round(S.mapKpa) : null);
-  sv('sv-fuel',    S.fuelKpa);
+  sv('sv-oil',     S.oilTemp, S.oilTemp !== null && S.oilTemp >= 130);
+
+  // 瞬間馬力計算
+  const hp = (S.mapKpa && S.rpm > 0)
+    ? Math.round(S.rpm * S.mapKpa / 48000 * 0.9863)
+    : null;
+  if (hp !== null) peakUpdate('sv-hp', hp, '#FF8000');
+  else { const hpEl = document.getElementById('sv-hp'); if(hpEl) hpEl.textContent='--'; }
 
   const cl  = document.getElementById('conn-label');
   cl.textContent = `OBD: ${S.conn}`;

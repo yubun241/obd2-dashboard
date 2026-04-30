@@ -6,9 +6,6 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>OBD2 Dashboard</title>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0B1020">
-<link rel="apple-touch-icon" href="icon.png">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   body{
@@ -43,7 +40,7 @@
 
   /* LEFT */
   #left{
-    flex:0 0 40%;display:flex;flex-direction:column;
+    flex:0 0 35%;display:flex;flex-direction:column;
     align-items:center;justify-content:center;
     border-right:1px solid #1C3050;
   }
@@ -60,7 +57,7 @@
 
   /* CENTER */
   #center{
-    flex:0 0 20%;display:flex;align-items:center;
+    flex:0 0 22%;display:flex;align-items:center;
     justify-content:center;border-right:1px solid #1C3050;
     padding:8px 4px;
   }
@@ -78,18 +75,17 @@
 
   /* RIGHT */
   #right{
-    flex:0 0 40%;display:flex;flex-direction:column;
-    justify-content:space-evenly;align-items:center;padding:4px 0;
+    flex:1 1 0;display:flex;flex-direction:column;
+    justify-content:space-evenly;padding-left:clamp(8px,2vw,20px);
   }
-  .sensor-row{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;}
-  .s-label{color:#5A7080;font-size:clamp(11px,1.6vw,13px);margin-bottom:2px;}
-  .s-num-row{display:flex;align-items:baseline;gap:5px;}
+  .sensor-row{display:flex;align-items:baseline;gap:4px}
+  .s-label{color:#5A7080;font-size:clamp(11px,1.6vw,14px)}
   .s-val{
-    color:#EEF2F5;font-size:clamp(28px,5vw,52px);
-    font-weight:bold;line-height:1;
+    color:#EEF2F5;font-size:clamp(13px,2vw,17px);
+    font-weight:bold;min-width:3ch;text-align:right;
   }
   .s-val.warn{color:#FF3D1A}
-  .s-unit{color:#5A7080;font-size:clamp(11px,1.6vw,14px);}
+  .s-unit{color:#5A7080;font-size:clamp(10px,1.4vw,13px)}
 
   /* STATUS BAR */
   #status{
@@ -127,34 +123,6 @@
   }
   #btn-scan{background:#4AABFF;color:#0B1020}
   #btn-cancel{background:#0E1E36;color:#5A7080;border:1px solid #1C3050!important}
-
-  /* DEBUG OVERLAY */
-  #dbg-overlay{
-    position:fixed;top:0;left:50%;right:0;bottom:0;
-    background:rgba(0,0,0,0.82);
-    color:#1FD060;font-family:monospace;
-    font-size:clamp(9px,1.8vw,12px);
-    padding:6px 10px;
-    overflow-y:auto;
-    z-index:200;pointer-events:none;
-    line-height:1.5;white-space:pre-wrap;word-break:break-all;
-    display:none;
-    border-left:1px solid #1C3050;
-  }
-  #dbg-overlay.show{display:block}
-  #btn-dbg{
-    position:fixed;bottom:40px;right:8px;z-index:300;
-    background:rgba(30,50,80,0.8);color:#5A7080;border:1px solid #1C3050;
-    border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;
-  }
-  .peak-hold {
-    transition: opacity 1.2s ease-in;
-  }
-  .peak-fade {
-    opacity: 0.45;
-    transition: opacity 1.2s ease-in;
-  }
-
 </style>
 </head>
 <body>
@@ -178,27 +146,25 @@
   </div>
   <div id="right">
     <div class="sensor-row">
-      <span class="s-label">Coolant</span>
-      <div class="s-num-row">
-        <span class="s-val" id="sv-coolant">--</span>
-        <span class="s-unit">°C</span>
-      </div>
+      <span class="s-label">Coolant:</span>
+      <span class="s-val" id="sv-coolant">--</span>
+      <span class="s-unit">°C</span>
     </div>
     <div class="sensor-row">
-      <span class="s-label">Oil Temp</span>
-      <div class="s-num-row">
-        <span class="s-val" id="sv-oil">--</span>
-        <span class="s-unit">°C</span>
-      </div>
+      <span class="s-label">Intake:</span>
+      <span class="s-val" id="sv-intake">--</span>
+      <span class="s-unit">°C</span>
     </div>
     <div class="sensor-row">
-      <span class="s-label">INST. POWER</span>
-      <div class="s-num-row">
-        <span class="s-val" id="sv-hp" style="color:#FF8000;">--</span>
-        <span class="s-unit">HP</span>
-      </div>
+      <span class="s-label">MAP:</span>
+      <span class="s-val" id="sv-map">--</span>
+      <span class="s-unit">kPa</span>
     </div>
-
+    <div class="sensor-row">
+      <span class="s-label">Fuel:</span>
+      <span class="s-val" id="sv-fuel">--</span>
+      <span class="s-unit">kPa</span>
+    </div>
   </div>
 </div>
 
@@ -210,11 +176,6 @@
   <span id="ratio-label"></span>
   <button id="btn-conn" onclick="onConnBtn()">接続</button>
 </div>
-
-
-<!-- DEBUG OVERLAY -->
-<div id="dbg-overlay"></div>
-<button id="btn-dbg" onclick="toggleDbg()">DBG</button>
 
 <!-- MODAL -->
 <div id="modal">
@@ -265,7 +226,7 @@ const ELM_SERVICES = [
 // ═══════════════════════════════════════════════
 const S = {
   rpm:0, speed:0, coolant:null, intake:null,
-  mapKpa:null, fuelKpa:null, boost:null, oilTemp:null,
+  mapKpa:null, fuelKpa:null, boost:null,
   gear:'N', gearCand:'N', gearCnt:0,
   conn:'Disconnected',
   device:null, txChar:null,
@@ -273,17 +234,7 @@ const S = {
   curPid:'', pidQueue:[],
 };
 
-// 高速PID: RPM・速度を優先、補助センサーは間引き
-const PIDS_FAST = ['010C','010D'];
-const PIDS_SLOW = ['015C','010B','0105'];
-let _slowIdx = 0;
-function nextPids() {
-  // 2サイクルに1回補助センサーを1つ追加
-  const pids = [...PIDS_FAST];
-  if (_slowIdx < PIDS_SLOW.length) pids.push(PIDS_SLOW[_slowIdx]);
-  _slowIdx = (_slowIdx + 1) % PIDS_SLOW.length;
-  return pids;
-}
+const PIDS = ['010C','010D','0105','010F','010B','010A'];
 const NOISE = ['NODATA','ERROR','UNABLE','SEARCHING','STOPPED','BUSBUSY'];
 
 // ═══════════════════════════════════════════════
@@ -337,54 +288,11 @@ function updateDots() {
 // ═══════════════════════════════════════════════
 const GEAR_COLORS = { N:'#4AABFF', '1':'#FF8000', R:'#FF3D1A' };
 
-// ピークホールド状態管理
-const _peak = {};
-// elId: { peakVal, displayVal, holdTimer, fadeTimer }
-
-function peakUpdate(elId, newVal, colorDefault) {
-  const el = document.getElementById(elId);
-  if (!el) return;
-  const num = parseFloat(newVal);
-  if (isNaN(num)) { el.textContent = newVal; return; }
-
-  if (!_peak[elId]) _peak[elId] = { peakVal: num, holdTimer: null, fadeTimer: null };
-  const state = _peak[elId];
-
-  if (num >= state.peakVal) {
-    // 上昇 or 同値: 即時追従・ピーク更新
-    state.peakVal = num;
-    el.textContent = num;
-    el.style.color = colorDefault;
-    el.classList.remove('peak-fade');
-
-    // ホールドタイマーリセット
-    clearTimeout(state.holdTimer);
-    clearTimeout(state.fadeTimer);
-    state.holdTimer = setTimeout(() => {
-      // 1.5秒後にフェードアウト開始
-      el.classList.add('peak-fade');
-      state.fadeTimer = setTimeout(() => {
-        // フェード完了後にピークリセット
-        state.peakVal = num;
-        el.classList.remove('peak-fade');
-      }, 1200);
-    }, 1500);
-
-  } else {
-    // 下降: ピーク値を表示したまま保持、実値は反映しない
-    // フェード中なら実値に追従
-    if (el.classList.contains('peak-fade')) {
-      el.textContent = num;
-      state.peakVal = num;
-    }
-    // ピーク保持中は何もしない（高い値を表示し続ける）
-  }
-}
-
 function updateUI() {
   updateDots();
-  peakUpdate('speed-val', S.speed, '#EEF2F5');
-  peakUpdate('boost-val', S.boost !== null ? S.boost.toFixed(2) : '---', '#FFD200');
+  document.getElementById('speed-val').textContent = S.speed;
+  document.getElementById('boost-val').textContent =
+    S.boost !== null ? S.boost.toFixed(2) : '---';
 
   const gv  = document.getElementById('gear-val');
   const gb  = document.getElementById('gear-box');
@@ -395,19 +303,13 @@ function updateUI() {
 
   const sv = (id, val, warn=false) => {
     const el = document.getElementById(id);
-    if (!el) return;
     el.textContent = val !== null ? val : '--';
     el.className = 's-val' + (warn ? ' warn' : '');
   };
   sv('sv-coolant', S.coolant, S.coolant !== null && S.coolant >= 105);
-  sv('sv-oil',     S.oilTemp, S.oilTemp !== null && S.oilTemp >= 130);
-
-  // 瞬間馬力計算
-  const hp = (S.mapKpa && S.rpm > 0)
-    ? Math.round(S.rpm * S.mapKpa / 48000 * 0.9863)
-    : null;
-  if (hp !== null) peakUpdate('sv-hp', hp, '#FF8000');
-  else { const hpEl = document.getElementById('sv-hp'); if(hpEl) hpEl.textContent='--'; }
+  sv('sv-intake',  S.intake);
+  sv('sv-map',     S.mapKpa !== null ? Math.round(S.mapKpa) : null);
+  sv('sv-fuel',    S.fuelKpa);
 
   const cl  = document.getElementById('conn-label');
   cl.textContent = `OBD: ${S.conn}`;
@@ -451,10 +353,9 @@ async function startBLE() {
     device.addEventListener('gattserverdisconnected', () => {
       console.log('[BLE] disconnected');
       S.polling = false; S.txChar = null;
-      clearInterval(_pollTimer); clearTimeout(_timeoutTimer);
       Object.assign(S, {rpm:0,speed:0,coolant:null,intake:null,
-        mapKpa:null,fuelKpa:null,boost:null,oilTemp:null,gear:'N',
-        gearCand:'N',gearCnt:0,buf:'',waiting:false});
+        mapKpa:null,fuelKpa:null,boost:null,gear:'N',
+        gearCand:'N',gearCnt:0});
       S.conn = 'Disconnected'; updateUI();
     });
 
@@ -521,7 +422,7 @@ async function startBLE() {
     }
 
     S.conn = 'Connected'; S.polling = true;
-    S.pidQueue = nextPids();
+    S.pidQueue = [...PIDS];
     updateUI();
     poll();
 
@@ -531,61 +432,32 @@ async function startBLE() {
   }
 }
 
-let _pollTimer = null;
-let _timeoutTimer = null;
-
 function onData(event) {
-  try { S.buf += new TextDecoder().decode(event.target.value); } catch(_) { return; }
-  // '>' または \r が複数含まれたら応答完了
-  if (!S.buf.includes('>') && S.buf.split('\r').filter(x=>x.trim()).length < 1) return;
-  clearTimeout(_timeoutTimer);
-  const r = S.buf; S.buf = '';
-  S.waiting = false;
-  if (S.conn !== 'Connected') return;
-
-  // 連結応答を\rで分割して全部処理
-  // 例: "410C0AD2\r410C0AC0\r>" → ["410C0AD2","410C0AC0"]
-  const lines = r.split('\r').map(l=>l.replace(/[\n>]/g,'').trim()).filter(l=>l.length>3);
-  const pid = S.curPid;
-  dbg('['+pid+'] lines='+JSON.stringify(lines));
-  if (lines.length > 0) {
-    // 最新値（最後の有効行）を使用
-    for (const line of lines) {
-      parseLine(pid, line);
-    }
-    updateUI();
+  const val = event.target.value;
+  S.buf += new TextDecoder().decode(val);
+  if (S.buf.includes('>')) {
+    const r = S.buf; S.buf = '';
+    if (S.conn === 'Connected') parse(r);
+    S.waiting = false;
   }
 }
 
-function poll() {
-  if (_pollTimer) clearInterval(_pollTimer);
-  _pollTimer = setInterval(() => {
-    if (!S.polling || S.conn !== 'Connected') {
-      clearInterval(_pollTimer); return;
+async function poll() {
+  while (S.polling && S.conn === 'Connected') {
+    if (!S.waiting) {
+      if (!S.pidQueue.length) S.pidQueue = [...PIDS];
+      S.curPid = S.pidQueue.shift();
+      S.waiting = true;
+      send(S.curPid);
+      setTimeout(() => { S.waiting = false; }, 1000);
     }
-    if (S.waiting) return;
-    if (!S.pidQueue.length) S.pidQueue = nextPids();
-    S.curPid = S.pidQueue.shift();
-    S.waiting = true;
-    send(S.curPid);
-    _timeoutTimer = setTimeout(() => { S.buf=''; S.waiting=false; }, 500);
-  }, 50);
+    await sleep(50);
+  }
 }
 
-let _dbgLog = '';
-function dbg(msg) {
-  _dbgLog = msg + '\n' + _dbgLog;
-  if (_dbgLog.length > 1200) _dbgLog = _dbgLog.slice(0, 1200);
-  const el = document.getElementById('dbg-overlay');
-  if (el && el.classList.contains('show')) el.textContent = _dbgLog;
-}
-function toggleDbg() {
-  const el = document.getElementById('dbg-overlay');
-  el.classList.toggle('show');
-  if (el.classList.contains('show')) el.textContent = _dbgLog;
-}
-
-function parseLineRaw(pid, raw) {
+function parse(raw) {
+  const pid = S.curPid;
+  if (!pid) return;
   const s = raw.replace(/[\s\r\n>]/g,'').toUpperCase();
   if (!s || NOISE.some(n=>s.includes(n))) return;
   const hdr = '4' + pid.slice(1);
@@ -605,17 +477,10 @@ function parseLineRaw(pid, raw) {
     } else if (pid==='010B' && v.length>=2) {
       const k = parseInt(v.slice(0,2),16);
       S.mapKpa = k; S.boost = (k - 101.325) / 98.0665;
-    } else if (pid==='015C' && v.length>=2) {
-      S.oilTemp = parseInt(v.slice(0,2),16) - 40;
+    } else if (pid==='010A' && v.length>=2) {
+      S.fuelKpa = parseInt(v.slice(0,2),16) * 3;
     }
   } catch(e) { console.warn('[PARSE]',e); }
-}
-
-function parseLine(pid, line) { parseLineRaw(pid, line); }
-function parse(raw) {
-  const pid = S.curPid;
-  if (!pid) return;
-  parseLineRaw(pid, raw);
   updateUI();
 }
 
@@ -632,13 +497,6 @@ function onConnBtn() {
 }
 function openModal()  { document.getElementById('modal').classList.add('show'); }
 function closeModal() { document.getElementById('modal').classList.remove('show'); }
-
-// Service Worker 登録
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/obd2-dashboard/sw.js')
-    .then(() => console.log('[PWA] SW registered'))
-    .catch(e => console.warn('[PWA] SW error', e));
-}
 
 // ═══════════════════════════════════════════════
 // INIT

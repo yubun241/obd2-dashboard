@@ -336,13 +336,18 @@ function buildDots() {
 }
 
 function updateDots() {
-  const active  = Math.min(Math.floor(S.rpm / CFG.maxRpm * CFG.rpmDots), CFG.rpmDots);
-  const rdline  = Math.floor(CFG.rpmDots * CFG.redlinePct);
+  const active      = Math.min(Math.floor(S.rpm / CFG.maxRpm * CFG.rpmDots), CFG.rpmDots);
+  const redStart    = Math.floor(CFG.rpmDots * 5000 / 7000);  // 9番目から赤
+  const yellowStart = Math.floor(CFG.rpmDots * 3500 / 7000);  // 6番目から黄
   for (let i = 0; i < CFG.rpmDots; i++) {
     const d = document.getElementById(`dot-${i}`);
     if (!d) continue;
     d.className = 'dot';
-    if (i < active) d.classList.add(i >= rdline ? 'active-r' : 'active-n');
+    if (i < active) {
+      if (i >= redStart)         d.classList.add('active-r');
+      else if (i >= yellowStart) d.classList.add('active-y');
+      else                       d.classList.add('active-n');
+    }
   }
 }
 
@@ -431,6 +436,18 @@ function loadDevice() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch(_) { return null; }
 }
 
+function _addDisconnectHandler(device) {
+  device.addEventListener('gattserverdisconnected', () => {
+    console.log('[BLE] disconnected');
+    S.polling = false; S.txChar = null;
+    clearInterval(_pollTimer); clearTimeout(_timeoutTimer);
+    Object.assign(S, {rpm:0,speed:0,coolant:null,intake:null,
+      mapKpa:null,fuelKpa:null,boost:null,oilTemp:null,gear:'N',
+      gearCand:'N',gearCnt:0,buf:'',waiting:false});
+    S.conn = 'Disconnected'; updateUI();
+  });
+}
+
 function closeQuickModal() {
   document.getElementById('modal-quick').classList.remove('show');
 }
@@ -445,14 +462,7 @@ async function quickConnect() {
     if (!device) { openModal(); return; }
     S.device = device;
     S.conn = 'Connecting...'; updateUI();
-    device.addEventListener('gattserverdisconnected', () => {
-      S.polling = false; S.txChar = null;
-      clearInterval(_pollTimer); clearTimeout(_timeoutTimer);
-      Object.assign(S, {rpm:0,speed:0,coolant:null,intake:null,
-        mapKpa:null,fuelKpa:null,boost:null,oilTemp:null,gear:'N',
-        gearCand:'N',gearCnt:0,buf:'',waiting:false});
-      S.conn = 'Disconnected'; updateUI();
-    });
+    _addDisconnectHandler(device);
     const server = await device.gatt.connect();
     await _initAfterConnect(server, device);
   } catch(e) {

@@ -33,6 +33,15 @@
   .dot.active-n{background:#4AABFF;border-color:#4AABFF}
   .dot.active-r{background:#FF3D1A;border-color:#FF3D1A}
   .dot.active-y{background:#FFD200;border-color:#FFD200}
+  @keyframes rpm-warn-blink {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.25; }
+  }
+  #rpm-bar.rpm-warn .dot.active-n,
+  #rpm-bar.rpm-warn .dot.active-y,
+  #rpm-bar.rpm-warn .dot.active-r {
+    animation: rpm-warn-blink 0.25s ease-in-out infinite;
+  }
   #vname{
     position:absolute;right:1vw;top:6px;
     font-size:clamp(8px,1.2vw,11px);color:#5A7080;
@@ -245,7 +254,7 @@
 // CONFIG  (Mini F56 JCW)
 // ═══════════════════════════════════════════════
 const CFG = {
-  maxRpm:        7000,
+  maxRpm:        6200,
   redlinePct:    0.82,
   rpmDots:       12,
   // Mini F56 JCW 6AT (Aisin TF-60SN)
@@ -371,8 +380,17 @@ function buildDots() {
 
 function updateDots() {
   const active      = Math.min(Math.floor(S.rpm / CFG.maxRpm * CFG.rpmDots), CFG.rpmDots);
-  const redStart    = Math.floor(CFG.rpmDots * 5000 / 7000);  // 9番目から赤
-  const yellowStart = Math.floor(CFG.rpmDots * 3500 / 7000);  // 6番目から黄
+  const redStart    = 9;   // 10個目から赤
+  const yellowStart = 6;   // 7個目から黄
+  const warnRpm     = 4800; // 4800rpm以上で全ドット点滅警告
+
+  // バー全体に警告クラスを付与
+  const bar = document.getElementById('rpm-bar');
+  if (bar) {
+    if (S.rpm >= warnRpm) bar.classList.add('rpm-warn');
+    else                  bar.classList.remove('rpm-warn');
+  }
+
   for (let i = 0; i < CFG.rpmDots; i++) {
     const d = document.getElementById(`dot-${i}`);
     if (!d) continue;

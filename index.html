@@ -248,13 +248,15 @@ const CFG = {
   maxRpm:        7000,
   redlinePct:    0.82,
   rpmDots:       12,
-  finalDrive:    3.647,
+  // Mini F56 JCW 6AT (Aisin TF-60SN)
+  finalDrive:    3.502,
   tireDiamMm:    616,
-  gearRatios:    [3.308,1.913,1.258,0.943,0.742,0.596],
-  tolerancePct:  0.18,
-  hysteresis:    3,
+  gearRatios:    [4.459, 2.508, 1.556, 1.142, 0.851, 0.672],
+  tolerancePct:  0.10,   // 厳格化 0.18→0.10
+  hysteresis:    2,      // 反応速度向上 3→2
   minSpeed:      4,
   minRpm:        500,
+  medianSize:    5,      // 5サンプル中央値でノイズ除去
 };
 
 // ギアテーブル計算
@@ -303,20 +305,52 @@ const NOISE = ['NODATA','ERROR','UNABLE','SEARCHING','STOPPED','BUSBUSY'];
 // ═══════════════════════════════════════════════
 // GEAR DETECTION
 // ═══════════════════════════════════════════════
+// RPM/速度比のサンプル履歴（中央値フィルタ用）
+const _ratioHistory = [];
+
 function detectGear() {
   if (S.speed < CFG.minSpeed || S.rpm < CFG.minRpm) {
-    S.gearCand='N'; S.gearCnt=0; S.gear='N'; return;
+    _ratioHistory.length = 0;
+    S.gearCand='N'; S.gearCnt=0; S.gear='N';
+    return;
   }
+
   const ratio = S.rpm / S.speed;
+  _ratioHistory.push(ratio);
+  if (_ratioHistory.length > CFG.medianSize) _ratioHistory.shift();
+
+  // 5サンプル未満なら前回ギアを保持
+  if (_ratioHistory.length < CFG.medianSize) return;
+
+  // 中央値を計算してノイズ除去
+  const sorted = [..._ratioHistory].sort((a,b)=>a-b);
+  const medRatio = sorted[Math.floor(sorted.length / 2)];
+
+  // 中央値とサンプルの最大乖離 = 変速中/クラッチ検出
+  const maxDev = Math.max(...sorted) - Math.min(...sorted);
+  const maxDevPct = maxDev / medRatio;
+  if (maxDevPct > 0.15) {
+    // 変速中：前回ギアを保持
+    return;
+  }
+
+  // 最も近いギアを検索
   let best='N', bestPct=CFG.tolerancePct;
   for (const g of GEAR_TABLE) {
-    const pct = Math.abs(ratio - g.rpmPerKmh) / g.rpmPerKmh;
+    const pct = Math.abs(medRatio - g.rpmPerKmh) / g.rpmPerKmh;
     if (pct < bestPct) { bestPct=pct; best=g.gear; }
   }
+
+  // 判定不能時は前回ギアを保持（Nに飛ばさない）
+  if (best === 'N') return;
+
   if (best === S.gearCand) {
     S.gearCnt++;
     if (S.gearCnt >= CFG.hysteresis) S.gear = best;
-  } else { S.gearCand=best; S.gearCnt=1; }
+  } else {
+    S.gearCand = best;
+    S.gearCnt  = 1;
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -444,6 +478,7 @@ function _addDisconnectHandler(device) {
     Object.assign(S, {rpm:0,speed:0,coolant:null,intake:null,
       mapKpa:null,fuelKpa:null,boost:null,oilTemp:null,gear:'N',
       gearCand:'N',gearCnt:0,buf:'',waiting:false});
+    _ratioHistory.length = 0;
     S.conn = 'Disconnected'; updateUI();
   });
 }

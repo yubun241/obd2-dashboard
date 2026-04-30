@@ -527,6 +527,7 @@ async function startBLE() {
 }
 
 async function _initAfterConnect(server, device) {
+  try {
     S.conn = 'Discovering...'; updateUI();
 
     // サービス探索

@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>OBD2 Dashboard</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0B1020">
+<link rel="apple-touch-icon" href="icon.png">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:#0B1020;color:#EEF2F5;
+    font-family:'Helvetica Neue',Helvetica,sans-serif;
+    height:100dvh;overflow:hidden;
+    display:flex;flex-direction:column;
+  }
+  /* RPM BAR */
+  #rpm-bar{
+    flex:0 0 20%;display:flex;align-items:center;
+    justify-content:center;gap:clamp(4px,2vw,18px);
+    padding:0 4vw;position:relative;
+  }
+  .dot{
+    width:clamp(10px,3.5vw,28px);
+    height:clamp(10px,3.5vw,28px);
+    border-radius:50%;
+    border:1.5px solid #1C3050;
+    flex-shrink:0;transition:background .05s;
+  }
+  .dot.active-n{background:#4AABFF;border-color:#4AABFF}
+  .dot.active-r{background:#FF3D1A;border-color:#FF3D1A}
+  .dot.active-y{background:#FFD200;border-color:#FFD200}
+  @keyframes rpm-warn-blink {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.25; }
+  }
+  #rpm-bar.rpm-warn .dot.dot-active {
+    animation: rpm-warn-blink 0.25s ease-in-out infinite;
+  }
+  #vname{
+    position:absolute;right:1vw;top:6px;
+    font-size:clamp(8px,1.2vw,11px);color:#5A7080;
+  }
+  .hdiv{height:1px;background:#1C3050;margin:0 8px;flex-shrink:0}
+
+  /* MAIN */
+  #main{flex:1 1 0;display:flex;min-height:0}
+
+  /* LEFT */
+  #left{
+    flex:0 0 40%;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    border-right:1px solid #1C3050;
+  }
+  #speed-val{
+    font-size:clamp(48px,10vw,90px);font-weight:bold;
+    line-height:1;color:#EEF2F5;
+  }
+  #speed-unit{font-size:clamp(11px,1.8vw,16px);color:#AABBCC;margin-top:2px}
+  #boost-val{
+    font-size:clamp(44px,9vw,82px);font-weight:bold;
+    color:#FFD200;line-height:1;margin-top:clamp(6px,1.5vh,14px);
+  }
+  #boost-unit{font-size:clamp(11px,1.8vw,16px);color:#FFD200;margin-top:2px}
+
+  /* CENTER */
+  #center{
+    flex:0 0 20%;display:flex;align-items:center;
+    justify-content:center;border-right:1px solid #1C3050;
+    padding:8px 4px;
+  }
+  #gear-box{
+    width:100%;height:100%;
+    background:#0E1E36;border-radius:14px;
+    border:2.5px solid #4AABFF;
+    display:flex;align-items:center;justify-content:center;
+    transition:border-color .15s;
+  }
+  #gear-val{
+    font-size:clamp(60px,12vw,110px);font-weight:bold;
+    color:#4AABFF;transition:color .15s;line-height:1;
+  }
+
+  /* RIGHT */
+  #right{
+    flex:0 0 40%;display:flex;flex-direction:column;
+    justify-content:space-evenly;align-items:center;padding:4px 0;
+  }
+  .sensor-row{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;}
+  .s-label{color:#5A7080;font-size:clamp(11px,1.6vw,13px);margin-bottom:2px;}
+  .s-num-row{display:flex;align-items:baseline;gap:5px;}
+  .s-val{
+    color:#EEF2F5;font-size:clamp(28px,5vw,52px);
+    font-weight:bold;line-height:1;
+  }
+  .s-val.warn{color:#FF3D1A}
+  .s-unit{color:#5A7080;font-size:clamp(11px,1.6vw,14px);}
+
+  /* STATUS BAR */
+  #status{
+    flex:0 0 32px;display:flex;align-items:center;
+    padding:0 10px;gap:8px;border-top:1px solid #1C3050;
+  }
+  #conn-label{font-size:clamp(10px,1.5vw,13px);font-weight:bold;color:#FF3D1A}
+  #ratio-label{font-size:9px;color:#5A7080}
+  #btn-conn{
+    margin-left:auto;
+    background:#4AABFF;color:#0B1020;border:none;
+    border-radius:5px;padding:3px 14px;
+    font-size:clamp(11px,1.6vw,13px);font-weight:bold;cursor:pointer;
+  }
+  #btn-conn.disc{background:#FF3D1A}
+
+  /* MODAL */
+  #modal{
+    display:none;position:fixed;inset:0;
+    background:rgba(0,0,0,.6);z-index:100;
+    align-items:center;justify-content:center;
+  }
+  #modal.show{display:flex}
+  #modal-box{
+    background:#0B1020;border:1px solid #1C3050;
+    border-radius:16px;padding:20px;
+    width:min(320px,90vw);color:#EEF2F5;
+    text-align:center;
+  }
+  #modal-box h3{color:#4AABFF;margin-bottom:12px;font-size:14px}
+  #modal-box p{color:#5A7080;font-size:11px;margin-bottom:16px}
+  #modal-box button{
+    width:100%;padding:10px;margin-top:8px;border:none;
+    border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer;
+  }
+  #btn-scan{background:#4AABFF;color:#0B1020}
+  #btn-cancel{background:#0E1E36;color:#5A7080;border:1px solid #1C3050!important}
+  #modal-quick{
+    display:none;position:fixed;inset:0;
+    background:rgba(0,0,0,.6);z-index:100;
+    align-items:center;justify-content:center;
+  }
+  #modal-quick.show{display:flex}
+  #quick-device-name{color:#4AABFF;font-size:15px;font-weight:bold;margin:8px 0 16px;}
+  #btn-quick{background:#4AABFF;color:#0B1020}
+  #btn-quick-cancel{background:#0E1E36;color:#5A7080;border:1px solid #1C3050!important}
+
+  /* DEBUG OVERLAY */
+  #dbg-overlay{
+    position:fixed;top:0;left:0;right:0;bottom:0;
+    background:rgba(0,0,0,0.35);
+    color:#1FD060;font-family:monospace;
+    font-size:clamp(9px,1.8vw,12px);
+    padding:6px 10px;
+    overflow-y:auto;
+    z-index:200;pointer-events:none;
+    line-height:1.5;white-space:pre-wrap;word-break:break-all;
+    display:none;
+    text-shadow:0 0 3px rgba(0,0,0,0.9);
+  }
+  #dbg-overlay.show{display:block}
+  #btn-dbg{
+    position:fixed;bottom:40px;right:8px;z-index:300;
+    background:rgba(30,50,80,0.8);color:#5A7080;border:1px solid #1C3050;
+    border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;
+  }
+  #btn-cfg{
+    position:fixed;bottom:40px;right:54px;z-index:300;
+    background:rgba(30,50,80,0.8);color:#5A7080;border:1px solid #1C3050;
+    border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;
+  }
+  #modal-cfg{
+    display:none;position:fixed;inset:0;
+    background:rgba(0,0,0,0.85);z-index:400;
+    align-items:flex-start;justify-content:center;
+    overflow-y:auto;padding:12px;
+  }
+  #modal-cfg.show{display:flex}
+  #cfg-box{
+    background:#0E1E36;border:1px solid #1C3050;border-radius:12px;
+    padding:14px;width:min(560px,95vw);
+    color:#EEF2F5;font-size:12px;
+  }
+  #cfg-box h3{
+    color:#4AABFF;font-size:14px;margin-bottom:10px;
+    border-bottom:1px solid #1C3050;padding-bottom:6px;
+  }
+  #cfg-box h4{color:#FFD200;font-size:12px;margin:12px 0 6px;}
+  .cfg-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:11px;}
+  .cfg-row label{color:#5A7080;min-width:50px;}
+  .cfg-row input[type=number]{
+    background:#0B1020;color:#EEF2F5;border:1px solid #1C3050;
+    border-radius:4px;padding:3px 6px;width:70px;font-size:11px;
+  }
+  .cfg-row select{
+    background:#0B1020;color:#EEF2F5;border:1px solid #1C3050;
+    border-radius:4px;padding:3px 4px;font-size:11px;
+  }
+  .cfg-dot-row{
+    display:flex;align-items:center;gap:6px;margin-bottom:3px;font-size:10px;
+  }
+  .cfg-dot-row span{color:#5A7080;min-width:30px;}
+  .cfg-actions{display:flex;gap:8px;margin-top:12px;}
+  .cfg-actions button{
+    flex:1;padding:8px;border:none;border-radius:6px;
+    font-weight:bold;cursor:pointer;font-size:13px;
+  }
+  #btn-cfg-save{background:#4AABFF;color:#0B1020;}
+  #btn-cfg-reset{background:#FF8000;color:#0B1020;}
+  #btn-cfg-cancel{background:#1C3050;color:#5A7080;}
+
+
+</style>
+</head>
+<body>
+
+<!-- RPM BAR -->
+<div id="rpm-bar">
+  <span id="vname">Mini F56 JCW</span>
+</div>
+<div class="hdiv"></div>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="left">
+    <div id="speed-val">0</div>
+    <div id="speed-unit">km/h</div>
+    <div id="boost-val">---</div>
+    <div id="boost-unit">kg/cm²</div>
+  </div>
+  <div id="center">
+    <div id="gear-box"><span id="gear-val">N</span></div>
+  </div>
+  <div id="right">
+    <div class="sensor-row">
+      <span class="s-label">Coolant</span>
+      <div class="s-num-row">
+        <span class="s-val" id="sv-coolant">--</span>
+        <span class="s-unit">°C</span>
+      </div>
+    </div>
+    <div class="sensor-row">
+      <span class="s-label">Oil Temp</span>
+      <div class="s-num-row">
+        <span class="s-val" id="sv-oil">--</span>
+        <span class="s-unit">°C</span>
+      </div>
+    </div>
+    <div class="sensor-row">
+      <span class="s-label">INST. POWER</span>
+      <div class="s-num-row">
+        <span class="s-val" id="sv-hp" style="color:#FF8000;">--</span>
+        <span class="s-unit">HP</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="hdiv"></div>
+
+<!-- STATUS BAR -->
+<div id="status">
+  <span id="conn-label">OBD: Disconnected</span>
+  <span id="ratio-label"></span>
+  <button id="btn-conn" onclick="onConnBtn()">接続</button>
+</div>
+
+
+<!-- DEBUG OVERLAY -->
+<div id="dbg-overlay"></div>
+<button id="btn-cfg" onclick="openCfg()">CFG</button>
+<button id="btn-dbg" onclick="toggleDbg()">DBG</button>
+
+<!-- CONFIG MODAL -->
+<div id="modal-cfg">
+  <div id="cfg-box">
+    <h3>セッティング</h3>
+
+    <h4>ドット数</h4>
+    <div class="cfg-row">
+      <label>個数</label>
+      <input type="number" id="cfg-dotcount" min="4" max="20" step="1">
+    </div>
+
+    <h4>最高回転 / 警告</h4>
+    <div class="cfg-row">
+      <label>MAX</label>
+      <input type="number" id="cfg-maxrpm" step="100"> rpm
+    </div>
+    <div class="cfg-row">
+      <label>警告</label>
+      <input type="number" id="cfg-warnrpm" step="100"> rpm (これ以上で全ドット点滅)
+    </div>
+
+    <h4>各ドット設定</h4>
+    <div id="cfg-dots"></div>
+
+    <div class="cfg-actions">
+      <button id="btn-cfg-save" onclick="saveCfg()">保存</button>
+      <button id="btn-cfg-reset" onclick="resetCfg()">初期化</button>
+      <button id="btn-cfg-cancel" onclick="closeCfg()">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- QUICK CONNECT MODAL -->
+<div id="modal-quick">
+  <div id="modal-box">
+    <h3>前回のデバイスに接続</h3>
+    <p id="quick-device-name">UniCarScan</p>
+    <button id="btn-quick" onclick="quickConnect()">接続する</button>
+    <button id="btn-quick-cancel" onclick="closeQuickModal()">キャンセル</button>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="modal">
+  <div id="modal-box">
+    <h3>BLE ELM327 接続</h3>
+    <p>次の画面でドングルを選択してください<br>（エンジンONの状態で実行）</p>
+    <button id="btn-scan" onclick="startBLE()">デバイスを検索</button>
+    <button id="btn-cancel" onclick="closeModal()">キャンセル</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// CONFIG  (Mini F56 JCW)
+// ═══════════════════════════════════════════════
+// 色マスター
+const COLOR_MAP = {
+  'blue':   '#4AABFF',
+  'green':  '#1FD060',
+  'yellow': '#FFD200',
+  'orange': '#FF8000',
+  'red':    '#FF3D1A',
+  'white':  '#EEF2F5',
+};
+
+// デフォルト設定
+const DEFAULT_CFG = {
+  maxRpm:        6200,
+  redlinePct:    0.82,
+  rpmDots:       12,
+  warnRpm:       4800,
+  // 各ドット: {color: 'blue'|..., threshold: rpm} — thresholdは「この値以上で点灯」
+  dotConfig: [
+    { color:'blue',   threshold:  500 },
+    { color:'blue',   threshold: 1000 },
+    { color:'blue',   threshold: 1500 },
+    { color:'blue',   threshold: 2000 },
+    { color:'blue',   threshold: 2500 },
+    { color:'blue',   threshold: 3000 },
+    { color:'yellow', threshold: 3500 },
+    { color:'yellow', threshold: 4000 },
+    { color:'yellow', threshold: 4500 },
+    { color:'red',    threshold: 5000 },
+    { color:'red',    threshold: 5500 },
+    { color:'red',    threshold: 6000 },
+  ],
+  finalDrive:    3.502,
+  tireDiamMm:    616,
+  gearRatios:    [4.459, 2.508, 1.556, 1.142, 0.851, 0.672],
+  tolerancePct:  0.10,
+  hysteresis:    2,
+  minSpeed:      4,
+  minRpm:        500,
+  medianSize:    5,
+};
+
+// LocalStorageから読み込み
+function loadCfg() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('obd2_cfg'));
+    if (saved) return Object.assign({}, DEFAULT_CFG, saved);
+  } catch(_) {}
+  return JSON.parse(JSON.stringify(DEFAULT_CFG));
+}
+
+let CFG = loadCfg();
+
+// ギアテーブル計算
+const GEAR_TABLE = (() => {
+  const circ  = Math.PI * CFG.tireDiamMm / 1000;
+  const factor = CFG.finalDrive * 1000 / (circ * 60);
+  return CFG.gearRatios.map((gr, i) => ({ gear: String(i+1), rpmPerKmh: gr * factor }));
+})();
+
+// ═══════════════════════════════════════════════
+// ELM327 UUIDs
+// ═══════════════════════════════════════════════
+const ELM_SERVICES = [
+  '0000ffe0-0000-1000-8000-00805f9b34fb',
+  '0000fff0-0000-1000-8000-00805f9b34fb',
+  '000018f0-0000-1000-8000-00805f9b34fb',
+  '0000ffe5-0000-1000-8000-00805f9b34fb',
+];
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+const S = {
+  rpm:0, speed:0, coolant:null, intake:null,
+  mapKpa:null, fuelKpa:null, boost:null, oilTemp:null,
+  gear:'N', gearCand:'N', gearCnt:0,
+  conn:'Disconnected',
+  device:null, txChar:null,
+  polling:false, waiting:false, buf:'',
+  curPid:'', pidQueue:[],
+};
+
+// 高速PID: RPM・速度を優先、補助センサーは間引き
+const PIDS_FAST = ['010C','010D'];
+const PIDS_SLOW = ['015C','010B','0105'];
+let _slowIdx = 0;
+function nextPids() {
+  // 2サイクルに1回補助センサーを1つ追加
+  const pids = [...PIDS_FAST];
+  if (_slowIdx < PIDS_SLOW.length) pids.push(PIDS_SLOW[_slowIdx]);
+  _slowIdx = (_slowIdx + 1) % PIDS_SLOW.length;
+  return pids;
+}
+const NOISE = ['NODATA','ERROR','UNABLE','SEARCHING','STOPPED','BUSBUSY'];
+
+// ═══════════════════════════════════════════════
+// GEAR DETECTION
+// ═══════════════════════════════════════════════
+// RPM/速度比のサンプル履歴（中央値フィルタ用）
+const _ratioHistory = [];
+
+function detectGear() {
+  if (S.speed < CFG.minSpeed || S.rpm < CFG.minRpm) {
+    _ratioHistory.length = 0;
+    S.gearCand='N'; S.gearCnt=0; S.gear='N';
+    return;
+  }
+
+  const ratio = S.rpm / S.speed;
+  _ratioHistory.push(ratio);
+  if (_ratioHistory.length > CFG.medianSize) _ratioHistory.shift();
+
+  // 5サンプル未満なら前回ギアを保持
+  if (_ratioHistory.length < CFG.medianSize) return;
+
+  // 中央値を計算してノイズ除去
+  const sorted = [..._ratioHistory].sort((a,b)=>a-b);
+  const medRatio = sorted[Math.floor(sorted.length / 2)];
+
+  // 中央値とサンプルの最大乖離 = 変速中/クラッチ検出
+  const maxDev = Math.max(...sorted) - Math.min(...sorted);
+  const maxDevPct = maxDev / medRatio;
+  if (maxDevPct > 0.15) {
+    // 変速中：前回ギアを保持
+    return;
+  }
+
+  // 最も近いギアを検索
+  let best='N', bestPct=CFG.tolerancePct;
+  for (const g of GEAR_TABLE) {
+    const pct = Math.abs(medRatio - g.rpmPerKmh) / g.rpmPerKmh;
+    if (pct < bestPct) { bestPct=pct; best=g.gear; }
+  }
+
+  // 判定不能時は前回ギアを保持（Nに飛ばさない）
+  if (best === 'N') return;
+
+  if (best === S.gearCand) {
+    S.gearCnt++;
+    if (S.gearCnt >= CFG.hysteresis) S.gear = best;
+  } else {
+    S.gearCand = best;
+    S.gearCnt  = 1;
+  }
+}
+
+// ═══════════════════════════════════════════════
+// RPM DOTS
+// ═══════════════════════════════════════════════
+function buildDots() {
+  const bar = document.getElementById('rpm-bar');
+  // 既存ドットを削除（vnameは残す）
+  [...bar.querySelectorAll('.dot')].forEach(d=>d.remove());
+  const vname = document.getElementById('vname');
+  for (let i = 0; i < CFG.rpmDots; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot';
+    d.id = `dot-${i}`;
+    bar.insertBefore(d, vname);
+  }
+}
+
+function updateDots() {
+  const bar = document.getElementById('rpm-bar');
+  if (bar) {
+    if (S.rpm >= CFG.warnRpm) bar.classList.add('rpm-warn');
+    else                       bar.classList.remove('rpm-warn');
+  }
+  for (let i = 0; i < CFG.rpmDots; i++) {
+    const d = document.getElementById(`dot-${i}`);
+    if (!d) continue;
+    const dc = CFG.dotConfig[i];
+    if (!dc) { d.style.background='transparent'; d.style.borderColor='#1C3050'; d.classList.remove('dot-active'); continue; }
+    if (S.rpm >= dc.threshold) {
+      const col = COLOR_MAP[dc.color] || '#4AABFF';
+      d.style.background  = col;
+      d.style.borderColor = col;
+      d.classList.add('dot-active');
+    } else {
+      d.style.background  = 'transparent';
+      d.style.borderColor = '#1C3050';
+      d.classList.remove('dot-active');
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════
+// UI UPDATE
+// ═══════════════════════════════════════════════
+const GEAR_COLORS = { N:'#4AABFF', '1':'#FF8000', R:'#FF3D1A' };
+
+// ピークホールド状態管理
+const _peak = {};
+// elId: { peakVal, displayVal, holdTimer, fadeTimer }
+
+function peakUpdate(elId, newVal, colorDefault) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const num = parseFloat(newVal);
+  if (isNaN(num)) { el.textContent = newVal; return; }
+
+  if (!_peak[elId]) _peak[elId] = { peakVal: num, holdTimer: null, fadeTimer: null };
+  const state = _peak[elId];
+
+  if (num > state.peakVal) {
+    // 上昇時: ピーク更新・ホールドタイマーリセット
+    state.peakVal = num;
+    el.textContent = num;
+    el.style.color = colorDefault;
+    clearTimeout(state.holdTimer);
+    state.holdTimer = setTimeout(() => {
+      // 2秒後にピークリセット→現在値に戻る
+      state.peakVal = 0;
+    }, 2000);
+  } else {
+    // 下降またはピーク保持中: 高い値を表示し続ける
+  }
+}
+
+// ═══════════════════════════════════════════════
+// CONFIG MODAL
+// ═══════════════════════════════════════════════
+function openCfg() {
+  document.getElementById('cfg-dotcount').value = CFG.rpmDots;
+  document.getElementById('cfg-maxrpm').value   = CFG.maxRpm;
+  document.getElementById('cfg-warnrpm').value  = CFG.warnRpm;
+  renderDotConfigRows();
+  document.getElementById('modal-cfg').classList.add('show');
+}
+function closeCfg() {
+  document.getElementById('modal-cfg').classList.remove('show');
+}
+function renderDotConfigRows() {
+  const container = document.getElementById('cfg-dots');
+  const count = parseInt(document.getElementById('cfg-dotcount').value) || CFG.rpmDots;
+  // 必要なら配列を伸縮（既存値は保持）
+  while (CFG.dotConfig.length < count) {
+    const last = CFG.dotConfig[CFG.dotConfig.length-1] || {color:'blue', threshold:500};
+    CFG.dotConfig.push({ color: last.color, threshold: last.threshold + 500 });
+  }
+  CFG.dotConfig = CFG.dotConfig.slice(0, count);
+
+  let html = '';
+  for (let i = 0; i < count; i++) {
+    const dc = CFG.dotConfig[i];
+    html += `<div class="cfg-dot-row">
+      <span>#${i+1}</span>
+      <select id="cfg-dot-color-${i}">
+        ${Object.keys(COLOR_MAP).map(k => 
+          `<option value="${k}" ${k===dc.color?'selected':''}>${k}</option>`).join('')}
+      </select>
+      <label>点灯</label>
+      <input type="number" id="cfg-dot-th-${i}" value="${dc.threshold}" step="100" style="width:70px;"> rpm~
+    </div>`;
+  }
+  container.innerHTML = html;
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const dc = document.getElementById('cfg-dotcount');
+  if (dc) dc.addEventListener('change', renderDotConfigRows);
+});
+
+function saveCfg() {
+  const count = parseInt(document.getElementById('cfg-dotcount').value) || 12;
+  CFG.rpmDots = Math.max(4, Math.min(20, count));
+  CFG.maxRpm  = parseInt(document.getElementById('cfg-maxrpm').value)  || 6200;
+  CFG.warnRpm = parseInt(document.getElementById('cfg-warnrpm').value) || 4800;
+  CFG.dotConfig = [];
+  for (let i = 0; i < CFG.rpmDots; i++) {
+    const colorEl = document.getElementById(`cfg-dot-color-${i}`);
+    const thEl    = document.getElementById(`cfg-dot-th-${i}`);
+    CFG.dotConfig.push({
+      color: colorEl ? colorEl.value : 'blue',
+      threshold: thEl ? (parseInt(thEl.value) || 500) : 500,
+    });
+  }
+  try { localStorage.setItem('obd2_cfg', JSON.stringify(CFG)); } catch(_) {}
+  buildDots();
+  updateUI();
+  closeCfg();
+}
+function resetCfg() {
+  if (!confirm('設定を初期化しますか？')) return;
+  CFG = JSON.parse(JSON.stringify(DEFAULT_CFG));
+  try { localStorage.removeItem('obd2_cfg'); } catch(_) {}
+  buildDots();
+  updateUI();
+  openCfg();
+}
+
+function updateUI() {
+  updateDots();
+  peakUpdate('speed-val', S.speed, '#EEF2F5');
+  peakUpdate('boost-val', S.boost !== null ? S.boost.toFixed(2) : '---', '#FFD200');
+
+  const gv  = document.getElementById('gear-val');
+  const gb  = document.getElementById('gear-box');
+  const col = GEAR_COLORS[S.gear] || '#EEF2F5';
+  gv.textContent  = S.gear;
+  gv.style.color  = col;
+  gb.style.borderColor = col;
+
+  const sv = (id, val, warn=false) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = val !== null ? val : '--';
+    el.className = 's-val' + (warn ? ' warn' : '');
+  };
+  sv('sv-coolant', S.coolant, S.coolant !== null && S.coolant >= 105);
+  sv('sv-oil',     S.oilTemp, S.oilTemp !== null && S.oilTemp >= 130);
+
+  // 瞬間馬力計算
+  const hp = (S.mapKpa && S.rpm > 0)
+    ? Math.round(S.rpm * S.mapKpa / 48000 * 0.9863)
+    : null;
+  if (hp !== null) peakUpdate('sv-hp', hp, '#FF8000');
+  else { const hpEl = document.getElementById('sv-hp'); if(hpEl) hpEl.textContent='--'; }
+
+  const cl  = document.getElementById('conn-label');
+  cl.textContent = `OBD: ${S.conn}`;
+  cl.style.color  = S.conn==='Connected' ? '#1FD060' : '#FF3D1A';
+
+  const btn = document.getElementById('btn-conn');
+  btn.textContent = S.conn==='Connected' ? '切断' : '接続';
+  btn.className   = S.conn==='Connected' ? 'disc' : '';
+
+  const rl = document.getElementById('ratio-label');
+  rl.textContent = S.speed > 2 ? `${(S.rpm/S.speed).toFixed(1)} r/v` : '';
+}
+
+// ═══════════════════════════════════════════════
+// QUICK CONNECT
+// ═══════════════════════════════════════════════
+const STORAGE_KEY = 'obd2_last_device';
+
+function saveDevice(id, name) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({id, name})); } catch(_) {}
+}
+function loadDevice() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch(_) { return null; }
+}
+
+function _addDisconnectHandler(device) {
+  device.addEventListener('gattserverdisconnected', () => {
+    console.log('[BLE] disconnected');
+    S.polling = false; S.txChar = null;
+    clearInterval(_pollTimer); clearTimeout(_timeoutTimer);
+    Object.assign(S, {rpm:0,speed:0,coolant:null,intake:null,
+      mapKpa:null,fuelKpa:null,boost:null,oilTemp:null,gear:'N',
+      gearCand:'N',gearCnt:0,buf:'',waiting:false});
+    _ratioHistory.length = 0;
+    S.conn = 'Disconnected'; updateUI();
+  });
+}
+
+function closeQuickModal() {
+  document.getElementById('modal-quick').classList.remove('show');
+}
+
+async function quickConnect() {
+  closeQuickModal();
+  const saved = loadDevice();
+  if (!saved) { openModal(); return; }
+  try {
+    const devices = await navigator.bluetooth.getDevices();
+    const device  = devices.find(d => d.id === saved.id);
+    if (!device) { openModal(); return; }
+    S.device = device;
+    S.conn = 'Connecting...'; updateUI();
+    _addDisconnectHandler(device);
+    const server = await device.gatt.connect();
+    await _initAfterConnect(server, device);
+  } catch(e) {
+    console.warn('[QUICK]', e);
+    openModal();
+  }
+}
+
+function checkAutoConnect() {
+  const saved = loadDevice();
+  if (!saved) return;
+  document.getElementById('quick-device-name').textContent = saved.name || 'UniCarScan';
+  document.getElementById('modal-quick').classList.add('show');
+}
+
+// ═══════════════════════════════════════════════
+// BLE
+// ═══════════════════════════════════════════════
+function send(cmd) {
+  if (!S.txChar) return;
+  const data = new TextEncoder().encode(cmd + '\r');
+  S.txChar.writeValueWithoutResponse(data).catch(e=>console.warn('[SEND]',e));
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function startBLE() {
+  closeModal();
+  if (!navigator.bluetooth) {
+    alert('このブラウザはWeb Bluetoothに対応していません。\nAndroid Chrome をお使いください。');
+    return;
+  }
+  try {
+    S.conn = 'Scanning...'; updateUI();
+    const device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: ELM_SERVICES,
+    });
+
+    S.device = device;
+    S.conn = 'Connecting...'; updateUI();
+
+    device.addEventListener('gattserverdisconnected', () => {
+      console.log('[BLE] disconnected');
+      S.polling = false; S.txChar = null;
+      clearInterval(_pollTimer); clearTimeout(_timeoutTimer);
+      Object.assign(S, {rpm:0,speed:0,coolant:null,intake:null,
+        mapKpa:null,fuelKpa:null,boost:null,oilTemp:null,gear:'N',
+        gearCand:'N',gearCnt:0,buf:'',waiting:false});
+      S.conn = 'Disconnected'; updateUI();
+    });
+
+    // デバイスIDを保存
+    saveDevice(device.id, device.name);
+
+    const server = await device.gatt.connect();
+    await _initAfterConnect(server, device);
+  } catch(e) {
+    console.error('[BLE]', e);
+    S.conn = 'Disconnected'; updateUI();
+  }
+}
+
+async function _initAfterConnect(server, device) {
+  try {
+    S.conn = 'Discovering...'; updateUI();
+
+    // サービス探索
+    let txChar=null, rxChar=null;
+    const services = await server.getPrimaryServices();
+
+    // 既知UUIDを優先して探索
+    for (const svcUuid of ELM_SERVICES) {
+      try {
+        const svc  = await server.getPrimaryService(svcUuid);
+        const chars = await svc.getCharacteristics();
+        console.log(`[SVC] ${svcUuid} chars=${chars.length}`);
+        for (const c of chars) {
+          console.log(`[CHAR] ${c.uuid} props=`, c.properties);
+          if ((c.properties.notify || c.properties.indicate) && !rxChar) rxChar = c;
+          if ((c.properties.writeWithoutResponse || c.properties.write) && !txChar) txChar = c;
+        }
+        if (txChar && rxChar) { console.log('[MATCH] known service:', svcUuid); break; }
+      } catch(_) {}
+    }
+
+    // フォールバック: 全サービス走査
+    if (!txChar || !rxChar) {
+      const STD = ['00001800','00001801','0000180a','0000180f'];
+      for (const svc of services) {
+        if (STD.some(s => svc.uuid.startsWith(s))) continue;
+        try {
+          const chars = await svc.getCharacteristics();
+          for (const c of chars) {
+            if ((c.properties.notify||c.properties.indicate) && !rxChar) rxChar = c;
+            if ((c.properties.writeWithoutResponse||c.properties.write) && !txChar) txChar = c;
+          }
+          if (txChar && rxChar) { console.log('[MATCH] fallback svc:', svc.uuid); break; }
+        } catch(_) {}
+      }
+    }
+
+    if (!txChar || !rxChar) {
+      S.conn='Match failed'; updateUI();
+      alert('ELM327のCharacteristicが見つかりませんでした。\nデバイスを確認してください。');
+      return;
+    }
+
+    S.txChar = txChar;
+    console.log('[MATCH] TX=', txChar.uuid, 'RX=', rxChar.uuid);
+
+    // Notify開始
+    await rxChar.startNotifications();
+    rxChar.addEventListener('characteristicvaluechanged', onData);
+
+    // ELM327初期化
+    await sleep(500);
+    console.log('[ELM] ATZ');
+    send('ATZ');
+    await sleep(1600);
+    for (const cmd of ['ATE0','ATL0','ATS0','ATH0','ATSP0']) {
+      console.log('[ELM]', cmd);
+      send(cmd);
+      await sleep(400);
+    }
+
+    S.conn = 'Connected'; S.polling = true;
+    S.pidQueue = nextPids();
+    updateUI();
+    poll();
+
+  } catch(e) {
+    console.error('[BLE]', e);
+    S.conn = 'Disconnected'; updateUI();
+  }
+}
+
+let _pollTimer = null;
+let _timeoutTimer = null;
+
+function onData(event) {
+  try { S.buf += new TextDecoder().decode(event.target.value); } catch(_) { return; }
+  // '>' または \r が複数含まれたら応答完了
+  if (!S.buf.includes('>') && S.buf.split('\r').filter(x=>x.trim()).length < 1) return;
+  clearTimeout(_timeoutTimer);
+  const r = S.buf; S.buf = '';
+  S.waiting = false;
+  if (S.conn !== 'Connected') return;
+
+  // 連結応答を\rで分割して全部処理
+  // 例: "410C0AD2\r410C0AC0\r>" → ["410C0AD2","410C0AC0"]
+  const lines = r.split('\r').map(l=>l.replace(/[\n>]/g,'').trim()).filter(l=>l.length>3);
+  const pid = S.curPid;
+  dbg('['+pid+'] lines='+JSON.stringify(lines));
+  if (lines.length > 0) {
+    // 最新値（最後の有効行）を使用
+    for (const line of lines) {
+      parseLine(pid, line);
+    }
+    updateUI();
+  }
+}
+
+function poll() {
+  if (_pollTimer) clearInterval(_pollTimer);
+  _pollTimer = setInterval(() => {
+    if (!S.polling || S.conn !== 'Connected') {
+      clearInterval(_pollTimer); return;
+    }
+    if (S.waiting) return;
+    if (!S.pidQueue.length) S.pidQueue = nextPids();
+    S.curPid = S.pidQueue.shift();
+    S.waiting = true;
+    send(S.curPid);
+    _timeoutTimer = setTimeout(() => { S.buf=''; S.waiting=false; }, 500);
+  }, 50);
+}
+
+let _dbgLog = '';
+function dbg(msg) {
+  _dbgLog = msg + '\n' + _dbgLog;
+  if (_dbgLog.length > 1200) _dbgLog = _dbgLog.slice(0, 1200);
+  const el = document.getElementById('dbg-overlay');
+  if (el && el.classList.contains('show')) el.textContent = _dbgLog;
+}
+function toggleDbg() {
+  const el = document.getElementById('dbg-overlay');
+  el.classList.toggle('show');
+  if (el.classList.contains('show')) el.textContent = _dbgLog;
+}
+
+function parseLineRaw(pid, raw) {
+  const s = raw.replace(/[\s\r\n>]/g,'').toUpperCase();
+  if (!s || NOISE.some(n=>s.includes(n))) return;
+  const hdr = '4' + pid.slice(1);
+  const idx = s.indexOf(hdr);
+  if (idx < 0) return;
+  const v = s.slice(idx + 4);
+  try {
+    if (pid==='010C' && v.length>=4) {
+      S.rpm = (parseInt(v.slice(0,2),16)*256 + parseInt(v.slice(2,4),16)) >> 2;
+      detectGear();
+    } else if (pid==='010D' && v.length>=2) {
+      S.speed = parseInt(v.slice(0,2),16); detectGear();
+    } else if (pid==='0105' && v.length>=2) {
+      S.coolant = parseInt(v.slice(0,2),16) - 40;
+    } else if (pid==='010F' && v.length>=2) {
+      S.intake  = parseInt(v.slice(0,2),16) - 40;
+    } else if (pid==='010B' && v.length>=2) {
+      const k = parseInt(v.slice(0,2),16);
+      S.mapKpa = k; S.boost = (k - 101.325) / 98.0665;
+    } else if (pid==='015C' && v.length>=2) {
+      S.oilTemp = parseInt(v.slice(0,2),16) - 40;
+    }
+  } catch(e) { console.warn('[PARSE]',e); }
+}
+
+function parseLine(pid, line) { parseLineRaw(pid, line); }
+function parse(raw) {
+  const pid = S.curPid;
+  if (!pid) return;
+  parseLineRaw(pid, raw);
+  updateUI();
+}
+
+// ═══════════════════════════════════════════════
+// MODAL / BUTTON
+// ═══════════════════════════════════════════════
+function onConnBtn() {
+  if (S.conn === 'Connected') {
+    S.polling = false;
+    if (S.device?.gatt?.connected) S.device.gatt.disconnect();
+  } else {
+    openModal();
+  }
+}
+function openModal()  { document.getElementById('modal').classList.add('show'); }
+function closeModal() { document.getElementById('modal').classList.remove('show'); }
+
+// Service Worker 登録
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/obd2-dashboard/sw.js')
+    .then(() => console.log('[PWA] SW registered'))
+    .catch(e => console.warn('[PWA] SW error', e));
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+buildDots();
+updateUI();
+
+// CFG ドット数変更リスナー
+const _dcEl = document.getElementById('cfg-dotcount');
+if (_dcEl) _dcEl.addEventListener('change', renderDotConfigRows);
+
+// 起動時にクイック接続チェック
+setTimeout(checkAutoConnect, 600);
+// 画面を横向きにリクエスト
+if (screen.orientation?.lock) {
+  screen.orientation.lock('landscape-secondary').catch(()=>{});
+}
+</script>
+</body>
+</html>

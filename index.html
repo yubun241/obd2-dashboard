@@ -37,9 +37,7 @@
     0%, 100% { opacity: 1; }
     50%      { opacity: 0.25; }
   }
-  #rpm-bar.rpm-warn .dot.active-n,
-  #rpm-bar.rpm-warn .dot.active-y,
-  #rpm-bar.rpm-warn .dot.active-r {
+  #rpm-bar.rpm-warn .dot.dot-active {
     animation: rpm-warn-blink 0.25s ease-in-out infinite;
   }
   #vname{
@@ -149,8 +147,8 @@
 
   /* DEBUG OVERLAY */
   #dbg-overlay{
-    position:fixed;top:0;left:50%;right:0;bottom:0;
-    background:rgba(0,0,0,0.82);
+    position:fixed;top:0;left:0;right:0;bottom:0;
+    background:rgba(0,0,0,0.35);
     color:#1FD060;font-family:monospace;
     font-size:clamp(9px,1.8vw,12px);
     padding:6px 10px;
@@ -158,7 +156,7 @@
     z-index:200;pointer-events:none;
     line-height:1.5;white-space:pre-wrap;word-break:break-all;
     display:none;
-    border-left:1px solid #1C3050;
+    text-shadow:0 0 3px rgba(0,0,0,0.9);
   }
   #dbg-overlay.show{display:block}
   #btn-dbg{
@@ -166,6 +164,50 @@
     background:rgba(30,50,80,0.8);color:#5A7080;border:1px solid #1C3050;
     border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;
   }
+  #btn-cfg{
+    position:fixed;bottom:40px;right:54px;z-index:300;
+    background:rgba(30,50,80,0.8);color:#5A7080;border:1px solid #1C3050;
+    border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;
+  }
+  #modal-cfg{
+    display:none;position:fixed;inset:0;
+    background:rgba(0,0,0,0.85);z-index:400;
+    align-items:flex-start;justify-content:center;
+    overflow-y:auto;padding:12px;
+  }
+  #modal-cfg.show{display:flex}
+  #cfg-box{
+    background:#0E1E36;border:1px solid #1C3050;border-radius:12px;
+    padding:14px;width:min(560px,95vw);
+    color:#EEF2F5;font-size:12px;
+  }
+  #cfg-box h3{
+    color:#4AABFF;font-size:14px;margin-bottom:10px;
+    border-bottom:1px solid #1C3050;padding-bottom:6px;
+  }
+  #cfg-box h4{color:#FFD200;font-size:12px;margin:12px 0 6px;}
+  .cfg-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:11px;}
+  .cfg-row label{color:#5A7080;min-width:50px;}
+  .cfg-row input[type=number]{
+    background:#0B1020;color:#EEF2F5;border:1px solid #1C3050;
+    border-radius:4px;padding:3px 6px;width:70px;font-size:11px;
+  }
+  .cfg-row select{
+    background:#0B1020;color:#EEF2F5;border:1px solid #1C3050;
+    border-radius:4px;padding:3px 4px;font-size:11px;
+  }
+  .cfg-dot-row{
+    display:flex;align-items:center;gap:6px;margin-bottom:3px;font-size:10px;
+  }
+  .cfg-dot-row span{color:#5A7080;min-width:30px;}
+  .cfg-actions{display:flex;gap:8px;margin-top:12px;}
+  .cfg-actions button{
+    flex:1;padding:8px;border:none;border-radius:6px;
+    font-weight:bold;cursor:pointer;font-size:13px;
+  }
+  #btn-cfg-save{background:#4AABFF;color:#0B1020;}
+  #btn-cfg-reset{background:#FF8000;color:#0B1020;}
+  #btn-cfg-cancel{background:#1C3050;color:#5A7080;}
 
 
 </style>
@@ -227,7 +269,40 @@
 
 <!-- DEBUG OVERLAY -->
 <div id="dbg-overlay"></div>
+<button id="btn-cfg" onclick="openCfg()">CFG</button>
 <button id="btn-dbg" onclick="toggleDbg()">DBG</button>
+
+<!-- CONFIG MODAL -->
+<div id="modal-cfg">
+  <div id="cfg-box">
+    <h3>セッティング</h3>
+
+    <h4>ドット数</h4>
+    <div class="cfg-row">
+      <label>個数</label>
+      <input type="number" id="cfg-dotcount" min="4" max="20" step="1">
+    </div>
+
+    <h4>最高回転 / 警告</h4>
+    <div class="cfg-row">
+      <label>MAX</label>
+      <input type="number" id="cfg-maxrpm" step="100"> rpm
+    </div>
+    <div class="cfg-row">
+      <label>警告</label>
+      <input type="number" id="cfg-warnrpm" step="100"> rpm (これ以上で全ドット点滅)
+    </div>
+
+    <h4>各ドット設定</h4>
+    <div id="cfg-dots"></div>
+
+    <div class="cfg-actions">
+      <button id="btn-cfg-save" onclick="saveCfg()">保存</button>
+      <button id="btn-cfg-reset" onclick="resetCfg()">初期化</button>
+      <button id="btn-cfg-cancel" onclick="closeCfg()">キャンセル</button>
+    </div>
+  </div>
+</div>
 
 <!-- QUICK CONNECT MODAL -->
 <div id="modal-quick">
@@ -253,20 +328,57 @@
 // ═══════════════════════════════════════════════
 // CONFIG  (Mini F56 JCW)
 // ═══════════════════════════════════════════════
-const CFG = {
+// 色マスター
+const COLOR_MAP = {
+  'blue':   '#4AABFF',
+  'green':  '#1FD060',
+  'yellow': '#FFD200',
+  'orange': '#FF8000',
+  'red':    '#FF3D1A',
+  'white':  '#EEF2F5',
+};
+
+// デフォルト設定
+const DEFAULT_CFG = {
   maxRpm:        6200,
   redlinePct:    0.82,
   rpmDots:       12,
-  // Mini F56 JCW 6AT (Aisin TF-60SN)
+  warnRpm:       4800,
+  // 各ドット: {color: 'blue'|..., threshold: rpm} — thresholdは「この値以上で点灯」
+  dotConfig: [
+    { color:'blue',   threshold:  500 },
+    { color:'blue',   threshold: 1000 },
+    { color:'blue',   threshold: 1500 },
+    { color:'blue',   threshold: 2000 },
+    { color:'blue',   threshold: 2500 },
+    { color:'blue',   threshold: 3000 },
+    { color:'yellow', threshold: 3500 },
+    { color:'yellow', threshold: 4000 },
+    { color:'yellow', threshold: 4500 },
+    { color:'red',    threshold: 5000 },
+    { color:'red',    threshold: 5500 },
+    { color:'red',    threshold: 6000 },
+  ],
   finalDrive:    3.502,
   tireDiamMm:    616,
   gearRatios:    [4.459, 2.508, 1.556, 1.142, 0.851, 0.672],
-  tolerancePct:  0.10,   // 厳格化 0.18→0.10
-  hysteresis:    2,      // 反応速度向上 3→2
+  tolerancePct:  0.10,
+  hysteresis:    2,
   minSpeed:      4,
   minRpm:        500,
-  medianSize:    5,      // 5サンプル中央値でノイズ除去
+  medianSize:    5,
 };
+
+// LocalStorageから読み込み
+function loadCfg() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('obd2_cfg'));
+    if (saved) return Object.assign({}, DEFAULT_CFG, saved);
+  } catch(_) {}
+  return JSON.parse(JSON.stringify(DEFAULT_CFG));
+}
+
+let CFG = loadCfg();
 
 // ギアテーブル計算
 const GEAR_TABLE = (() => {
@@ -379,26 +491,25 @@ function buildDots() {
 }
 
 function updateDots() {
-  const active      = Math.min(Math.floor(S.rpm / CFG.maxRpm * CFG.rpmDots), CFG.rpmDots);
-  const redStart    = 9;   // 10個目から赤
-  const yellowStart = 6;   // 7個目から黄
-  const warnRpm     = 4800; // 4800rpm以上で全ドット点滅警告
-
-  // バー全体に警告クラスを付与
   const bar = document.getElementById('rpm-bar');
   if (bar) {
-    if (S.rpm >= warnRpm) bar.classList.add('rpm-warn');
-    else                  bar.classList.remove('rpm-warn');
+    if (S.rpm >= CFG.warnRpm) bar.classList.add('rpm-warn');
+    else                       bar.classList.remove('rpm-warn');
   }
-
   for (let i = 0; i < CFG.rpmDots; i++) {
     const d = document.getElementById(`dot-${i}`);
     if (!d) continue;
-    d.className = 'dot';
-    if (i < active) {
-      if (i >= redStart)         d.classList.add('active-r');
-      else if (i >= yellowStart) d.classList.add('active-y');
-      else                       d.classList.add('active-n');
+    const dc = CFG.dotConfig[i];
+    if (!dc) { d.style.background='transparent'; d.style.borderColor='#1C3050'; d.classList.remove('dot-active'); continue; }
+    if (S.rpm >= dc.threshold) {
+      const col = COLOR_MAP[dc.color] || '#4AABFF';
+      d.style.background  = col;
+      d.style.borderColor = col;
+      d.classList.add('dot-active');
+    } else {
+      d.style.background  = 'transparent';
+      d.style.borderColor = '#1C3050';
+      d.classList.remove('dot-active');
     }
   }
 }
@@ -434,6 +545,77 @@ function peakUpdate(elId, newVal, colorDefault) {
   } else {
     // 下降またはピーク保持中: 高い値を表示し続ける
   }
+}
+
+// ═══════════════════════════════════════════════
+// CONFIG MODAL
+// ═══════════════════════════════════════════════
+function openCfg() {
+  document.getElementById('cfg-dotcount').value = CFG.rpmDots;
+  document.getElementById('cfg-maxrpm').value   = CFG.maxRpm;
+  document.getElementById('cfg-warnrpm').value  = CFG.warnRpm;
+  renderDotConfigRows();
+  document.getElementById('modal-cfg').classList.add('show');
+}
+function closeCfg() {
+  document.getElementById('modal-cfg').classList.remove('show');
+}
+function renderDotConfigRows() {
+  const container = document.getElementById('cfg-dots');
+  const count = parseInt(document.getElementById('cfg-dotcount').value) || CFG.rpmDots;
+  // 必要なら配列を伸縮（既存値は保持）
+  while (CFG.dotConfig.length < count) {
+    const last = CFG.dotConfig[CFG.dotConfig.length-1] || {color:'blue', threshold:500};
+    CFG.dotConfig.push({ color: last.color, threshold: last.threshold + 500 });
+  }
+  CFG.dotConfig = CFG.dotConfig.slice(0, count);
+
+  let html = '';
+  for (let i = 0; i < count; i++) {
+    const dc = CFG.dotConfig[i];
+    html += `<div class="cfg-dot-row">
+      <span>#${i+1}</span>
+      <select id="cfg-dot-color-${i}">
+        ${Object.keys(COLOR_MAP).map(k => 
+          `<option value="${k}" ${k===dc.color?'selected':''}>${k}</option>`).join('')}
+      </select>
+      <label>点灯</label>
+      <input type="number" id="cfg-dot-th-${i}" value="${dc.threshold}" step="100" style="width:70px;"> rpm~
+    </div>`;
+  }
+  container.innerHTML = html;
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const dc = document.getElementById('cfg-dotcount');
+  if (dc) dc.addEventListener('change', renderDotConfigRows);
+});
+
+function saveCfg() {
+  const count = parseInt(document.getElementById('cfg-dotcount').value) || 12;
+  CFG.rpmDots = Math.max(4, Math.min(20, count));
+  CFG.maxRpm  = parseInt(document.getElementById('cfg-maxrpm').value)  || 6200;
+  CFG.warnRpm = parseInt(document.getElementById('cfg-warnrpm').value) || 4800;
+  CFG.dotConfig = [];
+  for (let i = 0; i < CFG.rpmDots; i++) {
+    const colorEl = document.getElementById(`cfg-dot-color-${i}`);
+    const thEl    = document.getElementById(`cfg-dot-th-${i}`);
+    CFG.dotConfig.push({
+      color: colorEl ? colorEl.value : 'blue',
+      threshold: thEl ? (parseInt(thEl.value) || 500) : 500,
+    });
+  }
+  try { localStorage.setItem('obd2_cfg', JSON.stringify(CFG)); } catch(_) {}
+  buildDots();
+  updateUI();
+  closeCfg();
+}
+function resetCfg() {
+  if (!confirm('設定を初期化しますか？')) return;
+  CFG = JSON.parse(JSON.stringify(DEFAULT_CFG));
+  try { localStorage.removeItem('obd2_cfg'); } catch(_) {}
+  buildDots();
+  updateUI();
+  openCfg();
 }
 
 function updateUI() {
@@ -767,11 +949,16 @@ if ('serviceWorker' in navigator) {
 // ═══════════════════════════════════════════════
 buildDots();
 updateUI();
+
+// CFG ドット数変更リスナー
+const _dcEl = document.getElementById('cfg-dotcount');
+if (_dcEl) _dcEl.addEventListener('change', renderDotConfigRows);
+
 // 起動時にクイック接続チェック
 setTimeout(checkAutoConnect, 600);
 // 画面を横向きにリクエスト
 if (screen.orientation?.lock) {
-  screen.orientation.lock('landscape').catch(()=>{});
+  screen.orientation.lock('landscape-secondary').catch(()=>{});
 }
 </script>
 </body>
